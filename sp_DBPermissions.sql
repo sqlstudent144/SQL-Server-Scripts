@@ -1,19 +1,17 @@
-USE master
-GO
-IF OBJECT_ID('dbo.sp_DBPermissions') IS NULL
+IF OBJECT_ID('dbo.sp_DBPermissionsSQLDB') IS NULL
     EXEC sp_executesql N'CREATE PROCEDURE dbo.sp_DBPermissions AS PRINT ''Stub'';'
 GO
 /*********************************************************************************************
 sp_DBPermissions V6.1
 Kenneth Fisher
-  
+ 
 http://www.sqlstudies.com
 https://github.com/sqlstudent144/SQL-Server-Scripts/blob/master/sp_DBPermissions.sql
-  
+ 
 This stored procedure returns 3 data sets.  The first dataset is the list of database
 principals, the second is role membership, and the third is object and database level
 permissions.
-     
+    
 The final 2 columns of each query are "Un-Do"/"Do" scripts.  For example removing a member
 from a role or adding them to a role.  I am fairly confident in the role scripts, however, 
 the scripts in the database principals query and database/object permissions query are 
@@ -21,14 +19,14 @@ works in progress.  In particular certificates, keys and column level permission
 scripted out.  Also while the scripts have worked flawlessly on the systems I've tested 
 them on, these systems are fairly similar when it comes to security so I can't say that 
 in a more complicated system there won't be the odd bug.
-     
+    
 Standard disclaimer: You use scripts off of the web at your own risk.  I fully expect this
      script to work without issue but I've been known to be wrong before.
-     
+    
 Parameters:
     @DBName
         If NULL use the current database, otherwise give permissions based on the parameter.
-     
+    
         There is a special case where you pass in ALL to the @DBName.  In this case the SP
         will loop through (yes I'm using a cursor) all of the DBs in sysdatabases and run
         the queries into temp tables before returning the results.  WARNINGS: If you use
@@ -66,43 +64,43 @@ Parameters:
     @LoginName
         If NOT NULL then each of the queries will only pull back database principals that
         have the same SID as a login that matches the pattern '%' + @LoginName + '%'
-    @UseLikeSearch
-        When this is set to 1 (the default) then the search parameters will use LIKE (and
-        %'s will be added around the @Principal, @Role, @ObjectName, and @LoginName parameters).  
+	@UseLikeSearch
+		When this is set to 1 (the default) then the search parameters will use LIKE (and 
+		%'s will be added around the @Principal, @Role, @ObjectName, and @LoginName parameters).  
         When set to 0 searchs will use =.
-    @IncludeMSShipped
-        When this is set to 1 (the default) then all principals will be included.  When set 
-        to 0 the fixed server roles and SA and Public principals will be excluded.
-    @DropTempTables
-        When this is set to 1 (the default) the temp tables used are dropped.  If it's 0
-        then the tempt ables are kept for references after the code has finished.
-        The temp tables are:
-            ##DBPrincipals
-            ##DBRoles 
-            ##DBPermissions
-    @Output
-        What type of output is desired.
-        Default - Either 'Default' or it doesn't match any of the allowed values then the SP
-                    will return the standard 3 outputs.
-        None - No output at all.  Usually used if you keeping the temp tables to do your own
-                    reporting.
-        CreateOnly - Only return the create scripts where they aren't NULL.
-        DropOnly - Only return the drop scripts where they aren't NULL.
-        ScriptsOnly - Return drop and create scripts where they aren't NULL.
-        Report - Returns one output with one row per principal and a comma delimited list of
-                    roles the principal is a member of and a comma delimited list of the 
-                    individual permissions they have.
+	@IncludeMSShipped
+		When this is set to 1 (the default) then all principals will be included.  When set 
+		to 0 the fixed server roles and SA and Public principals will be excluded.
+	@DropTempTables
+		When this is set to 1 (the default) the temp tables used are dropped.  If it's 0
+		then the tempt ables are kept for references after the code has finished.
+		The temp tables are:
+			##DBPrincipals
+			##DBRoles 
+			##DBPermissions
+	@Output
+		What type of output is desired.
+		Default - Either 'Default' or it doesn't match any of the allowed values then the SP
+					will return the standard 3 outputs.
+		None - No output at all.  Usually used if you keeping the temp tables to do your own
+					reporting.
+		CreateOnly - Only return the create scripts where they aren't NULL.
+		DropOnly - Only return the drop scripts where they aren't NULL.
+		ScriptsOnly - Return drop and create scripts where they aren't NULL.
+		Report - Returns one output with one row per principal and a comma delimited list of
+					roles the principal is a member of and a comma delimited list of the 
+					individual permissions they have.
     @Print
         Defaults to 0, but if a 1 is passed in then the queries are not run but printed
         out instead.  This is primarily for debugging.
-     
+    
 Data is ordered as follows
     1st result set: DBPrincipal
     2nd result set: RoleName, UserName if the parameter @Role is used else
                     UserName, RoleName
     3rd result set: ObjectName then Grantee_Name if the parameter @ObjectName
                     is used otherwise Grantee_Name, ObjectName
-     
+    
 -- V2.0
 -- 8/18/2013 – Create a stub if the SP doesn’t exist, then always do an alter
 -- 8/18/2013 - Use instance collation for all concatenated strings
@@ -146,48 +144,49 @@ Data is ordered as follows
 -- V6.1
 -- 06/25/2018 - Skip snapshots
 -- 02/13/2019 - Fix to direct permissions column in the report output to show schema permissions correctly
+-- 04/05/2019 - For 'All' DB parameter fix to only look at ONLINE and EMERGENCY DBs.
 *********************************************************************************************/
-     
+    
 ALTER PROCEDURE dbo.sp_DBPermissions 
 (
-    @DBName sysname = NULL, 
-    @Principal sysname = NULL, 
-    @Role sysname = NULL, 
-    @Type nvarchar(30) = NULL,
-    @ObjectName sysname = NULL,
-    @Permission sysname = NULL,
-    @LoginName sysname = NULL,
+	@DBName sysname = NULL, 
+	@Principal sysname = NULL, 
+	@Role sysname = NULL, 
+	@Type nvarchar(30) = NULL,
+	@ObjectName sysname = NULL,
+	@Permission sysname = NULL,
+	@LoginName sysname = NULL,
     @UseLikeSearch bit = 1,
     @IncludeMSShipped bit = 1,
-    @DropTempTables bit = 1,
-    @Output varchar(30) = 'Default',
-    @Print bit = 0
+	@DropTempTables bit = 1,
+	@Output varchar(30) = 'Default',
+	@Print bit = 0
 )
 AS
-   
+  
 SET NOCOUNT ON
-     
+    
 DECLARE @Collation nvarchar(75) 
 SET @Collation = N' COLLATE ' + CAST(SERVERPROPERTY('Collation') AS nvarchar(50))
-     
+    
 DECLARE @sql nvarchar(max)
 DECLARE @sql2 nvarchar(max)
 DECLARE @ObjectList nvarchar(max)
 DECLARE @use nvarchar(500)
 DECLARE @AllDBNames sysname
-     
+    
 IF @DBName IS NULL OR @DBName = N'All'
     BEGIN
         SET @use = ''
         IF @DBName IS NULL
-            SET @DBName = DB_NAME()
+			SET @DBName = DB_NAME()
             --SELECT @DBName = db_name(database_id) 
             --FROM sys.dm_exec_requests 
             --WHERE session_id = @@SPID
     END
 ELSE
 --    IF EXISTS (SELECT 1 FROM sys.databases WHERE name = @DBName)
-    IF db_id(@DBName) IS NOT NULL
+	IF db_id(@DBName) IS NOT NULL
         SET @use = N'USE ' + QUOTENAME(@DBName) + N';' + NCHAR(13)
     ELSE
         BEGIN
@@ -197,29 +196,29 @@ ELSE
                             @DBName)
             RETURN
         END
- 
+
 DECLARE @LikeOperator nvarchar(4)
- 
+
 IF @UseLikeSearch = 1
-    SET @LikeOperator = N'LIKE'
-ELSE
-    SET @LikeOperator = N'='
-     
+	SET @LikeOperator = N'LIKE'
+ELSE 
+	SET @LikeOperator = N'='
+    
 IF @UseLikeSearch = 1
-BEGIN
-    IF LEN(ISNULL(@Principal,'')) > 0
-        SET @Principal = N'%' + @Principal + N'%'
-         
-    IF LEN(ISNULL(@Role,'')) > 0
-        SET @Role = N'%' + @Role + N'%'
-     
-    IF LEN(ISNULL(@ObjectName,'')) > 0
-        SET @ObjectName = N'%' + @ObjectName + N'%'
-   
-    IF LEN(ISNULL(@LoginName,'')) > 0
-        SET @LoginName = N'%' + @LoginName + N'%'
+BEGIN 
+	IF LEN(ISNULL(@Principal,'')) > 0
+		SET @Principal = N'%' + @Principal + N'%'
+        
+	IF LEN(ISNULL(@Role,'')) > 0
+		SET @Role = N'%' + @Role + N'%'
+    
+	IF LEN(ISNULL(@ObjectName,'')) > 0
+		SET @ObjectName = N'%' + @ObjectName + N'%'
+  
+	IF LEN(ISNULL(@LoginName,'')) > 0
+		SET @LoginName = N'%' + @LoginName + N'%'
 END
-   
+  
 IF @Print = 1 AND @DBName = N'All'
     BEGIN
         PRINT 'DECLARE @AllDBNames sysname'
@@ -236,7 +235,7 @@ SET @sql =
     N'   Authorizations.name AS RoleAuthorization, DBPrincipals.sid, ' + NCHAR(13) +  
     N'   CASE WHEN DBPrincipals.is_fixed_role = 0 AND DBPrincipals.name NOT IN (''dbo'',''guest'', ''INFORMATION_SCHEMA'', ''public'', ''sys'') THEN ' + NCHAR(13) + 
     CASE WHEN @DBName = 'All' THEN N'   ''USE '' + QUOTENAME(@AllDBNames) + ''; '' + ' + NCHAR(13) ELSE N'' END + 
-    N'          ''IF DATABASE_PRINCIPAL_ID('''''' + DBPrincipals.name + '''''') IS NOT NULL '' + ' + NCHAR(13) + 
+	N'			''IF DATABASE_PRINCIPAL_ID('''''' + DBPrincipals.name + '''''') IS NOT NULL '' + ' + NCHAR(13) + 
     N'           ''DROP '' + CASE DBPrincipals.[type] WHEN ''C'' THEN NULL ' + NCHAR(13) + 
     N'               WHEN ''K'' THEN NULL ' + NCHAR(13) + 
     N'               WHEN ''R'' THEN ''ROLE'' ' + NCHAR(13) + 
@@ -245,7 +244,7 @@ SET @sql =
     N'           '' ''+QUOTENAME(DBPrincipals.name' + @Collation + N') + '';'' ELSE NULL END AS DropScript, ' + NCHAR(13) + 
     N'   CASE WHEN DBPrincipals.is_fixed_role = 0 AND DBPrincipals.name NOT IN (''dbo'',''guest'', ''INFORMATION_SCHEMA'', ''public'', ''sys'') THEN ' + NCHAR(13) + 
     CASE WHEN @DBName = 'All' THEN N'   ''USE '' + QUOTENAME(@AllDBNames) + ''; '' + ' +NCHAR(13) ELSE N'' END + 
-    N'          ''IF DATABASE_PRINCIPAL_ID('''''' + DBPrincipals.name + '''''') IS NULL '' + ' + NCHAR(13) + 
+	N'			''IF DATABASE_PRINCIPAL_ID('''''' + DBPrincipals.name + '''''') IS NULL '' + ' + NCHAR(13) + 
     N'           ''CREATE '' + CASE DBPrincipals.[type] WHEN ''C'' THEN NULL ' + NCHAR(13) + 
     N'               WHEN ''K'' THEN NULL ' + NCHAR(13) + 
     N'               WHEN ''R'' THEN ''ROLE'' ' + NCHAR(13) + 
@@ -277,26 +276,26 @@ SET @sql =
     N'   ON DBPrincipals.sid = SrvPrincipals.sid ' + NCHAR(13) + 
     N'   AND DBPrincipals.sid NOT IN (0x00, 0x01) ' + NCHAR(13) + 
     N'WHERE 1=1 '
-     
+    
 IF LEN(ISNULL(@Principal,@Role)) > 0 
     IF @Print = 1
         SET @sql = @sql + NCHAR(13) + N'  AND DBPrincipals.name ' + @LikeOperator + N' ' + 
             ISNULL(QUOTENAME(@Principal,N''''),QUOTENAME(@Role,'''')) 
     ELSE
         SET @sql = @sql + NCHAR(13) + N'  AND DBPrincipals.name ' + @LikeOperator + N' ISNULL(@Principal,@Role) '
-     
+    
 IF LEN(@Type) > 0
     IF @Print = 1
         SET @sql = @sql + NCHAR(13) + N'  AND DBPrincipals.type ' + @LikeOperator + N' ' + QUOTENAME(@Type,'''')
     ELSE
         SET @sql = @sql + NCHAR(13) + N'  AND DBPrincipals.type ' + @LikeOperator + N' @Type'
-     
+    
 IF LEN(@LoginName) > 0
     IF @Print = 1
         SET @sql = @sql + NCHAR(13) + N'  AND SrvPrincipals.name ' + @LikeOperator + N' ' + QUOTENAME(@LoginName,'''')
     ELSE
         SET @sql = @sql + NCHAR(13) + N'  AND SrvPrincipals.name ' + @LikeOperator + N' @LoginName'
-   
+  
 IF LEN(@ObjectName) > 0
     BEGIN
         SET @sql = @sql + NCHAR(13) + 
@@ -306,34 +305,34 @@ IF LEN(@ObjectName) > 0
         N'                   ON Permission.major_id = [Objects].object_id ' + NCHAR(13) + 
         N'               WHERE Permission.major_id = [Objects].object_id ' + NCHAR(13) + 
         N'                 AND Permission.grantee_principal_id = DBPrincipals.principal_id ' + NCHAR(13)
-           
+          
         IF @Print = 1
             SET @sql = @sql + N'                 AND [Objects].name ' + @LikeOperator + N' ' + QUOTENAME(@ObjectName,'''') 
         ELSE
             SET @sql = @sql + N'                 AND [Objects].name ' + @LikeOperator + N' @ObjectName'
-   
+  
         SET @sql = @sql + N')'
     END
-   
+  
 IF LEN(@Permission) > 0
     BEGIN
         SET @sql = @sql + NCHAR(13) + 
         N'   AND EXISTS (SELECT 1 ' + NCHAR(13) + 
         N'               FROM sys.database_permissions Permission ' + NCHAR(13) +  
         N'               WHERE Permission.grantee_principal_id = DBPrincipals.principal_id ' + NCHAR(13)
-           
+          
         IF @Print = 1
             SET @sql = @sql + N'                 AND Permission.permission_name ' + @LikeOperator + N' ' + QUOTENAME(@Permission,'''') 
         ELSE
             SET @sql = @sql + N'                 AND Permission.permission_name ' + @LikeOperator + N' @Permission'
-   
+  
         SET @sql = @sql + N')'
     END
- 
+
 IF @IncludeMSShipped = 0
-    SET @sql = @sql + NCHAR(13) + N'  AND DBPrincipals.is_fixed_role = 0 ' + NCHAR(13) + 
-                '  AND DBPrincipals.name NOT IN (''dbo'',''public'',''INFORMATION_SCHEMA'',''guest'',''sys'') '
- 
+	SET @sql = @sql + NCHAR(13) + N'  AND DBPrincipals.is_fixed_role = 0 ' + NCHAR(13) + 
+				'  AND DBPrincipals.name NOT IN (''dbo'',''public'',''INFORMATION_SCHEMA'',''guest'',''sys'') '
+
 IF @Print = 1
 BEGIN
     PRINT N'-- Database Principals'
@@ -343,41 +342,41 @@ BEGIN
 END
 ELSE
 BEGIN
-    IF object_id('tempdb..##DBPrincipals') IS NOT NULL
-        DROP TABLE ##DBPrincipals
- 
-    -- Create temp table to store the data in
-    CREATE TABLE ##DBPrincipals (
-        DBName sysname NULL,
-        DBPrincipalId int NULL,
-        DBPrincipal sysname NULL,
-        SrvPrincipal sysname NULL,
-        type char(1) NULL,
-        type_desc nchar(60) NULL,
-        default_schema_name sysname NULL,
-        create_date datetime NULL,
-        modify_date datetime NULL,
-        is_fixed_role bit NULL,
-        RoleAuthorization sysname NULL,
-        sid varbinary(85) NULL,
-        DropScript nvarchar(max) NULL,
-        CreateScript nvarchar(max) NULL
-        )
-     
-    SET @sql =  @use + N'INSERT INTO ##DBPrincipals ' + NCHAR(13) + @sql
- 
+	IF object_id('tempdb..##DBPrincipals') IS NOT NULL
+		DROP TABLE ##DBPrincipals
+
+	-- Create temp table to store the data in
+	CREATE TABLE ##DBPrincipals (
+		DBName sysname NULL,
+		DBPrincipalId int NULL,
+		DBPrincipal sysname NULL,
+		SrvPrincipal sysname NULL,
+		type char(1) NULL,
+		type_desc nchar(60) NULL,
+		default_schema_name sysname NULL,
+		create_date datetime NULL,
+		modify_date datetime NULL,
+		is_fixed_role bit NULL,
+		RoleAuthorization sysname NULL,
+		sid varbinary(85) NULL,
+		DropScript nvarchar(max) NULL,
+		CreateScript nvarchar(max) NULL
+		)
+    
+	SET @sql =  @use + N'INSERT INTO ##DBPrincipals ' + NCHAR(13) + @sql
+
     IF @DBName = 'All'
         BEGIN
             -- Declare a READ_ONLY cursor to loop through the databases
             DECLARE cur_DBList CURSOR
             READ_ONLY
             FOR SELECT name FROM sys.databases 
-            WHERE state <> 6
-              AND source_database_id IS NULL
-            ORDER BY name
-     
+			WHERE state IN (0,5)
+			  AND source_database_id IS NULL
+			ORDER BY name
+    
             OPEN cur_DBList
-     
+    
             FETCH NEXT FROM cur_DBList INTO @AllDBNames
             WHILE (@@fetch_status <> -1)
             BEGIN
@@ -392,7 +391,7 @@ BEGIN
                 END
                 FETCH NEXT FROM cur_DBList INTO @AllDBNames
             END
-     
+    
             CLOSE cur_DBList
             DEALLOCATE cur_DBList
         END
@@ -400,7 +399,7 @@ BEGIN
         EXEC sp_executesql @sql, N'@Principal sysname, @Role sysname, @Type nvarchar(30), 
             @ObjectName sysname, @Permission sysname, @LoginName sysname', 
             @Principal, @Role, @Type, @ObjectName, @Permission, @LoginName
-END 
+END  
 --=========================================================================
 -- Database Role Members
 SET @sql =  
@@ -424,25 +423,25 @@ SET @sql =
     N'JOIN sys.database_principals Roles ' + NCHAR(13) + 
     N'   ON RoleMembers.role_principal_id = Roles.principal_id ' + NCHAR(13) + 
     N'WHERE 1=1 '
-         
+        
 IF LEN(ISNULL(@Principal,'')) > 0
     IF @Print = 1
         SET @sql = @sql + NCHAR(13) + N'  AND Users.name ' + @LikeOperator + N' '+QUOTENAME(@Principal,'''')
     ELSE
         SET @sql = @sql + NCHAR(13) + N'  AND Users.name ' + @LikeOperator + N' @Principal'
-     
+    
 IF LEN(ISNULL(@Role,'')) > 0
     IF @Print = 1
         SET @sql = @sql + NCHAR(13) + N'  AND Roles.name ' + @LikeOperator + N' '+QUOTENAME(@Role,'''')
     ELSE
         SET @sql = @sql + NCHAR(13) + N'  AND Roles.name ' + @LikeOperator + N' @Role'
-     
+    
 IF LEN(@Type) > 0 
     IF @Print = 1
         SET @sql = @sql + NCHAR(13) + N'  AND Users.type ' + @LikeOperator + N' ' + QUOTENAME(@Type,'''')
     ELSE
         SET @sql = @sql + NCHAR(13) + N'  AND Users.type ' + @LikeOperator + N' @Type'
-   
+  
 IF LEN(@LoginName) > 0
     BEGIN
         SET @sql = @sql + NCHAR(13) + 
@@ -455,10 +454,10 @@ IF LEN(@LoginName) > 0
             SET @sql = @sql + NCHAR(13) + '  AND SrvPrincipals.name ' + @LikeOperator + N' ' + QUOTENAME(@LoginName,'''')
         ELSE
             SET @sql = @sql + NCHAR(13) + '  AND SrvPrincipals.name ' + @LikeOperator + N' @LoginName'
-   
+  
         SET @sql = @sql + N')'
     END
-   
+  
 IF LEN(@ObjectName) > 0
     BEGIN
         SET @sql = @sql + NCHAR(13) + 
@@ -468,70 +467,70 @@ IF LEN(@ObjectName) > 0
         N'                   ON Permission.major_id = [Objects].object_id ' + NCHAR(13) + 
         N'               WHERE Permission.major_id = [Objects].object_id ' + NCHAR(13) + 
         N'                 AND Permission.grantee_principal_id = Users.principal_id ' + NCHAR(13)
-           
+          
         IF @Print = 1
             SET @sql = @sql + N'                 AND [Objects].name ' + @LikeOperator + N' ' + QUOTENAME(@ObjectName,'''') 
         ELSE
             SET @sql = @sql + N'                 AND [Objects].name ' + @LikeOperator + N' @ObjectName'
-   
+  
         SET @sql = @sql + N')'
     END
-   
+  
 IF LEN(@Permission) > 0
     BEGIN
         SET @sql = @sql + NCHAR(13) + 
         N'   AND EXISTS (SELECT 1 ' + NCHAR(13) + 
         N'               FROM sys.database_permissions Permission ' + NCHAR(13) +  
         N'               WHERE Permission.grantee_principal_id = Users.principal_id ' + NCHAR(13)
-           
+          
         IF @Print = 1
             SET @sql = @sql + N'                 AND Permission.permission_name ' + @LikeOperator + N' ' + QUOTENAME(@Permission,'''') 
         ELSE
             SET @sql = @sql + N'                 AND Permission.permission_name ' + @LikeOperator + N' @Permission'
-   
+  
         SET @sql = @sql + N')'
     END
-   
+  
 IF @IncludeMSShipped = 0
-    SET @sql = @sql + NCHAR(13) + N'  AND Users.is_fixed_role = 0 ' + NCHAR(13) + 
-                '  AND Users.name NOT IN (''dbo'',''public'',''INFORMATION_SCHEMA'',''guest'',''sys'') '
- 
+	SET @sql = @sql + NCHAR(13) + N'  AND Users.is_fixed_role = 0 ' + NCHAR(13) + 
+				'  AND Users.name NOT IN (''dbo'',''public'',''INFORMATION_SCHEMA'',''guest'',''sys'') '
+
 IF @Print = 1
 BEGIN
     PRINT N'-- Database Role Members'
     PRINT CAST(@sql AS nvarchar(max))
     PRINT '' -- Spacing before the next print
-    PRINT ''
+    PRINT '' 
 END
 ELSE
 BEGIN
-    IF object_id('tempdb..##DBRoles') IS NOT NULL
-        DROP TABLE ##DBRoles
- 
+	IF object_id('tempdb..##DBRoles') IS NOT NULL
+		DROP TABLE ##DBRoles
+
     -- Create temp table to store the data in
     CREATE TABLE ##DBRoles (
         DBName sysname NULL,
         UserPrincipalId int NULL,
-        UserName sysname NULL,
+		UserName sysname NULL,
         RoleName sysname NULL,
         DropScript nvarchar(max) NULL,
         AddScript nvarchar(max) NULL
         )
- 
-    SET @sql =  @use + NCHAR(13) + 'INSERT INTO ##DBRoles ' + NCHAR(13) + @sql
-     
+
+	SET @sql =  @use + NCHAR(13) + 'INSERT INTO ##DBRoles ' + NCHAR(13) + @sql
+    
     IF @DBName = 'All'
         BEGIN
             -- Declare a READ_ONLY cursor to loop through the databases
             DECLARE cur_DBList CURSOR
             READ_ONLY
             FOR SELECT name FROM sys.databases 
-            WHERE state <> 6
-              AND source_database_id IS NULL
-            ORDER BY name
-     
+			WHERE state IN (0,5)
+			  AND source_database_id IS NULL
+			ORDER BY name
+    
             OPEN cur_DBList
-     
+    
             FETCH NEXT FROM cur_DBList INTO @AllDBNames
             WHILE (@@fetch_status <> -1)
             BEGIN
@@ -546,7 +545,7 @@ BEGIN
                 END
                 FETCH NEXT FROM cur_DBList INTO @AllDBNames
             END
-     
+    
             CLOSE cur_DBList
             DEALLOCATE cur_DBList
         END
@@ -555,7 +554,7 @@ BEGIN
             @ObjectName sysname, @Permission sysname, @LoginName sysname', 
             @Principal, @Role, @Type, @ObjectName, @Permission, @LoginName
 END
-     
+    
 --=========================================================================
 -- Database & object Permissions
 SET @ObjectList =
@@ -598,7 +597,7 @@ SET @ObjectList =
     N'       ''ASSEMBLY'' AS class ' + NCHAR(13) + 
     N'   FROM sys.assemblies' + NCHAR(13) + 
     N'   UNION ALL' + NCHAR(13) 
- 
+
 SET @ObjectList = @ObjectList + 
     N'   SELECT SCHEMA_NAME(sys.types.schema_id) ' + @Collation + N' AS SchemaName, ' + NCHAR(13) + 
     N'       name ' + @Collation + N' AS name, ' + NCHAR(13) + 
@@ -677,7 +676,7 @@ SET @ObjectList = @ObjectList +
     N'       ''ASYMMETRIC KEY'' AS class ' + NCHAR(13) + 
     N'   FROM sys.asymmetric_keys' + NCHAR(13) +  
     N'   ) ' + NCHAR(13)
-   
+  
     SET @sql =
     N'SELECT ' + CASE WHEN @DBName = 'All' THEN N'@AllDBNames' ELSE N'''' + @DBName + N'''' END + N' AS DBName,' + NCHAR(13) + 
     N'   Grantee.principal_id AS GranteePrincipalId, Grantee.name AS GranteeName, Grantor.name AS GrantorName, ' + NCHAR(13) + 
@@ -720,31 +719,31 @@ SET @ObjectList = @ObjectList +
     N'   ON Permission.major_id = ObjectList.id ' + NCHAR(13) + 
     N'   AND Permission.class_desc = ObjectList.class_desc ' + NCHAR(13) + 
     N'WHERE 1=1 '
-     
+    
 IF LEN(ISNULL(@Principal,@Role)) > 0
     IF @Print = 1
         SET @sql = @sql + NCHAR(13) + N'  AND Grantee.name ' + @LikeOperator + N' ' + ISNULL(QUOTENAME(@Principal,''''),QUOTENAME(@Role,'''')) 
     ELSE
         SET @sql = @sql + NCHAR(13) + N'  AND Grantee.name ' + @LikeOperator + N' ISNULL(@Principal,@Role) '
-             
+            
 IF LEN(@Type) > 0
     IF @Print = 1
         SET @sql = @sql + NCHAR(13) + N'  AND Grantee.type ' + @LikeOperator + N' ' + QUOTENAME(@Type,'''')
     ELSE
         SET @sql = @sql + NCHAR(13) + N'  AND Grantee.type ' + @LikeOperator + N' @Type'
-     
+    
 IF LEN(@ObjectName) > 0
     IF @Print = 1
         SET @sql = @sql + NCHAR(13) + N'  AND ObjectList.name ' + @LikeOperator + N' ' + QUOTENAME(@ObjectName,'''') 
     ELSE
         SET @sql = @sql + NCHAR(13) + N'  AND ObjectList.name ' + @LikeOperator + N' @ObjectName '
-     
+    
 IF LEN(@Permission) > 0
     IF @Print = 1
         SET @sql = @sql + NCHAR(13) + N'  AND Permission.permission_name ' + @LikeOperator + N' ' + QUOTENAME(@Permission,'''')
     ELSE
         SET @sql = @sql + NCHAR(13) + N'  AND Permission.permission_name ' + @LikeOperator + N' @Permission'
-   
+  
 IF LEN(@LoginName) > 0
     BEGIN
         SET @sql = @sql + NCHAR(13) + 
@@ -757,31 +756,31 @@ IF LEN(@LoginName) > 0
             SET @sql = @sql + NCHAR(13) + N'  AND SrvPrincipals.name ' + @LikeOperator + N' ' + QUOTENAME(@LoginName,'''')
         ELSE
             SET @sql = @sql + NCHAR(13) + N'  AND SrvPrincipals.name ' + @LikeOperator + N' @LoginName'
-   
+  
         SET @sql = @sql + ')'
     END
- 
+
 IF @IncludeMSShipped = 0
-    SET @sql = @sql + NCHAR(13) + N'  AND Grantee.is_fixed_role = 0 ' + NCHAR(13) + 
-                '  AND Grantee.name NOT IN (''dbo'',''public'',''INFORMATION_SCHEMA'',''guest'',''sys'') '
-   
+	SET @sql = @sql + NCHAR(13) + N'  AND Grantee.is_fixed_role = 0 ' + NCHAR(13) + 
+				'  AND Grantee.name NOT IN (''dbo'',''public'',''INFORMATION_SCHEMA'',''guest'',''sys'') '
+  
 IF @Print = 1
     BEGIN
-        PRINT '-- Database & object Permissions'
+        PRINT '-- Database & object Permissions' 
         PRINT CAST(@use AS nvarchar(max))
         PRINT CAST(@ObjectList AS nvarchar(max))
         PRINT CAST(@sql AS nvarchar(max))
     END
 ELSE
 BEGIN
-    IF object_id('tempdb..##DBPermissions') IS NOT NULL
-        DROP TABLE ##DBPermissions
- 
+	IF object_id('tempdb..##DBPermissions') IS NOT NULL
+		DROP TABLE ##DBPermissions
+
     -- Create temp table to store the data in
     CREATE TABLE ##DBPermissions (
         DBName sysname NULL,
         GranteePrincipalId int NULL,
-        GranteeName sysname NULL,
+		GranteeName sysname NULL,
         GrantorName sysname NULL,
         class_desc nvarchar(60) NULL,
         permission_name nvarchar(128) NULL,
@@ -791,24 +790,24 @@ BEGIN
         RevokeScript nvarchar(max) NULL,
         GrantScript nvarchar(max) NULL
         )
-     
+    
     -- Add insert statement to @sql
     SET @sql =  @use + @ObjectList + 
                 N'INSERT INTO ##DBPermissions ' + NCHAR(13) + 
                 @sql
-     
+    
     IF @DBName = 'All'
         BEGIN
             -- Declare a READ_ONLY cursor to loop through the databases
             DECLARE cur_DBList CURSOR
             READ_ONLY
             FOR SELECT name FROM sys.databases 
-            WHERE state <> 6
-              AND source_database_id IS NULL
-            ORDER BY name
-     
+			WHERE state IN (0,5)
+			  AND source_database_id IS NULL
+			ORDER BY name
+    
             OPEN cur_DBList
-     
+    
             FETCH NEXT FROM cur_DBList INTO @AllDBNames
             WHILE (@@fetch_status <> -1)
             BEGIN
@@ -823,7 +822,7 @@ BEGIN
                 END
                 FETCH NEXT FROM cur_DBList INTO @AllDBNames
             END
-     
+    
             CLOSE cur_DBList
             DEALLOCATE cur_DBList
         END
@@ -834,86 +833,86 @@ BEGIN
                 @Principal, @Role, @Type, @ObjectName, @Permission, @LoginName
         END
 END
- 
+
 IF @Print <> 1
 BEGIN
-    IF @Output = 'None'
-        PRINT ''
-    ELSE IF @Output = 'CreateOnly'
-    BEGIN
-        SELECT CreateScript FROM ##DBPrincipals WHERE CreateScript IS NOT NULL
-        UNION ALL
-        SELECT AddScript FROM ##DBRoles WHERE AddScript IS NOT NULL
-        UNION ALL
-        SELECT GrantScript FROM ##DBPermissions WHERE GrantScript IS NOT NULL
-    END
-    ELSE IF @Output = 'DropOnly'
-    BEGIN
-        SELECT DropScript FROM ##DBPrincipals WHERE DropScript IS NOT NULL
-        UNION ALL
-        SELECT DropScript FROM ##DBRoles WHERE DropScript IS NOT NULL
-        UNION ALL
-        SELECT RevokeScript FROM ##DBPermissions WHERE RevokeScript IS NOT NULL
-    END
-    ELSE IF @Output = 'ScriptOnly'
-    BEGIN
-        SELECT DropScript, CreateScript FROM ##DBPrincipals WHERE DropScript IS NOT NULL OR CreateScript IS NOT NULL
-        UNION ALL
-        SELECT DropScript, AddScript FROM ##DBRoles WHERE DropScript IS NOT NULL OR AddScript IS NOT NULL
-        UNION ALL
-        SELECT RevokeScript, GrantScript FROM ##DBPermissions WHERE RevokeScript IS NOT NULL OR GrantScript IS NOT NULL
-    END
-    ELSE IF @Output = 'Report'
-    BEGIN
-        SELECT DBName, DBPrincipal, SrvPrincipal, type, type_desc,
-                STUFF((SELECT ', ' + ##DBRoles.RoleName
-                        FROM ##DBRoles
-                        WHERE ##DBPrincipals.DBName = ##DBRoles.DBName
-                          AND ##DBPrincipals.DBPrincipalId = ##DBRoles.UserPrincipalId
-                        ORDER BY ##DBRoles.RoleName
-                        FOR XML PATH(''),TYPE).value('.','VARCHAR(MAX)')
-                    , 1, 2, '') AS RoleMembership,
-                STUFF((SELECT ', ' + ##DBPermissions.state_desc + ' ' + ##DBPermissions.permission_name + ' on ' + 
-                        COALESCE('OBJECT:'+##DBPermissions.SchemaName + '.' + ##DBPermissions.ObjectName, 
-                                'SCHEMA:'+##DBPermissions.SchemaName,
-                                'DATABASE:'+##DBPermissions.DBName)
-                        FROM ##DBPermissions
-                        WHERE ##DBPrincipals.DBName = ##DBPermissions.DBName
-                          AND ##DBPrincipals.DBPrincipalId = ##DBPermissions.GranteePrincipalId
-                        ORDER BY ##DBPermissions.state_desc, ISNULL(##DBPermissions.ObjectName, ##DBPermissions.DBName), ##DBPermissions.permission_name
-                        FOR XML PATH(''),TYPE).value('.','VARCHAR(MAX)')
-                    , 1, 2, '') AS DirectPermissions
-        FROM ##DBPrincipals
-        ORDER BY DBName, type, DBPrincipal
-    END
-    ELSE -- 'Default' or no match
-    BEGIN
-        SELECT DBName, DBPrincipal, SrvPrincipal, type, type_desc, default_schema_name, 
-                create_date, modify_date, is_fixed_role, RoleAuthorization, sid, 
-                DropScript, CreateScript
-        FROM ##DBPrincipals ORDER BY DBName, DBPrincipal
-        IF LEN(@Role) > 0
-            SELECT DBName, UserName, RoleName, DropScript, AddScript 
-            FROM ##DBRoles ORDER BY DBName, RoleName, UserName
-        ELSE
-            SELECT DBName, UserName, RoleName, DropScript, AddScript 
-            FROM ##DBRoles ORDER BY DBName, UserName, RoleName
- 
-        IF LEN(@ObjectName) > 0
-            SELECT DBName, GranteeName, GrantorName, class_desc, permission_name, ObjectName, 
-                SchemaName, state_desc, RevokeScript, GrantScript 
-            FROM ##DBPermissions ORDER BY DBName, ObjectName, GranteeName
-        ELSE
-            SELECT DBName, GranteeName, GrantorName, class_desc, permission_name, ObjectName, 
-                SchemaName, state_desc, RevokeScript, GrantScript 
-            FROM ##DBPermissions ORDER BY DBName, GranteeName, ObjectName
-    END
- 
-    IF @DropTempTables = 1
-    BEGIN
-        DROP TABLE ##DBPrincipals
-        DROP TABLE ##DBRoles
-        DROP TABLE ##DBPermissions
-    END
+	IF @Output = 'None'
+		PRINT ''
+	ELSE IF @Output = 'CreateOnly'
+	BEGIN
+		SELECT CreateScript FROM ##DBPrincipals WHERE CreateScript IS NOT NULL
+		UNION ALL
+		SELECT AddScript FROM ##DBRoles WHERE AddScript IS NOT NULL
+		UNION ALL
+		SELECT GrantScript FROM ##DBPermissions WHERE GrantScript IS NOT NULL
+	END 
+	ELSE IF @Output = 'DropOnly' 
+	BEGIN
+		SELECT DropScript FROM ##DBPrincipals WHERE DropScript IS NOT NULL
+		UNION ALL
+		SELECT DropScript FROM ##DBRoles WHERE DropScript IS NOT NULL
+		UNION ALL
+		SELECT RevokeScript FROM ##DBPermissions WHERE RevokeScript IS NOT NULL
+	END
+	ELSE IF @Output = 'ScriptOnly' 
+	BEGIN
+		SELECT DropScript, CreateScript FROM ##DBPrincipals WHERE DropScript IS NOT NULL OR CreateScript IS NOT NULL
+		UNION ALL
+		SELECT DropScript, AddScript FROM ##DBRoles WHERE DropScript IS NOT NULL OR AddScript IS NOT NULL
+		UNION ALL
+		SELECT RevokeScript, GrantScript FROM ##DBPermissions WHERE RevokeScript IS NOT NULL OR GrantScript IS NOT NULL
+	END
+	ELSE IF @Output = 'Report'
+	BEGIN
+		SELECT DBName, DBPrincipal, SrvPrincipal, type, type_desc,
+				STUFF((SELECT ', ' + ##DBRoles.RoleName
+						FROM ##DBRoles
+						WHERE ##DBPrincipals.DBName = ##DBRoles.DBName
+						  AND ##DBPrincipals.DBPrincipalId = ##DBRoles.UserPrincipalId
+						ORDER BY ##DBRoles.RoleName
+						FOR XML PATH(''),TYPE).value('.','VARCHAR(MAX)')
+					, 1, 2, '') AS RoleMembership,
+				STUFF((SELECT ', ' + ##DBPermissions.state_desc + ' ' + ##DBPermissions.permission_name + ' on ' + 
+						COALESCE('OBJECT:'+##DBPermissions.SchemaName + '.' + ##DBPermissions.ObjectName, 
+								'SCHEMA:'+##DBPermissions.SchemaName,
+								'DATABASE:'+##DBPermissions.DBName)
+						FROM ##DBPermissions
+						WHERE ##DBPrincipals.DBName = ##DBPermissions.DBName
+						  AND ##DBPrincipals.DBPrincipalId = ##DBPermissions.GranteePrincipalId
+						ORDER BY ##DBPermissions.state_desc, ISNULL(##DBPermissions.ObjectName, ##DBPermissions.DBName), ##DBPermissions.permission_name
+						FOR XML PATH(''),TYPE).value('.','VARCHAR(MAX)')
+					, 1, 2, '') AS DirectPermissions
+		FROM ##DBPrincipals
+		ORDER BY DBName, type, DBPrincipal
+	END
+	ELSE -- 'Default' or no match
+	BEGIN
+		SELECT DBName, DBPrincipal, SrvPrincipal, type, type_desc, default_schema_name, 
+				create_date, modify_date, is_fixed_role, RoleAuthorization, sid, 
+				DropScript, CreateScript
+		FROM ##DBPrincipals ORDER BY DBName, DBPrincipal
+		IF LEN(@Role) > 0
+			SELECT DBName, UserName, RoleName, DropScript, AddScript 
+			FROM ##DBRoles ORDER BY DBName, RoleName, UserName
+		ELSE
+			SELECT DBName, UserName, RoleName, DropScript, AddScript 
+			FROM ##DBRoles ORDER BY DBName, UserName, RoleName
+
+		IF LEN(@ObjectName) > 0
+			SELECT DBName, GranteeName, GrantorName, class_desc, permission_name, ObjectName, 
+				SchemaName, state_desc, RevokeScript, GrantScript 
+			FROM ##DBPermissions ORDER BY DBName, ObjectName, GranteeName
+		ELSE
+			SELECT DBName, GranteeName, GrantorName, class_desc, permission_name, ObjectName, 
+				SchemaName, state_desc, RevokeScript, GrantScript 
+			FROM ##DBPermissions ORDER BY DBName, GranteeName, ObjectName
+	END
+
+	IF @DropTempTables = 1
+	BEGIN
+		DROP TABLE ##DBPrincipals
+		DROP TABLE ##DBRoles
+		DROP TABLE ##DBPermissions
+	END
 END
 GO
