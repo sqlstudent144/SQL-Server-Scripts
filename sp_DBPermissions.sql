@@ -8,6 +8,7 @@ sp_DBPermissions V6.1
 Kenneth Fisher
   
 http://www.sqlstudies.com
+https://github.com/sqlstudent144/SQL-Server-Scripts/blob/master/sp_DBPermissions.sql
   
 This stored procedure returns 3 data sets.  The first dataset is the list of database
 principals, the second is role membership, and the third is object and database level
