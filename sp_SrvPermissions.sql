@@ -8,7 +8,7 @@ sp_SrvPermissions V6.1
 Kenneth Fisher
  
 http://www.sqlstudies.com
-https://github.com/sqlstudent144/SQL-Server-Scripts/edit/master/sp_SrvPermissions
+https://github.com/sqlstudent144/SQL-Server-Scripts/edit/master/sp_SrvPermissions.sql
 
 This stored procedure returns 3 data sets.  The first dataset is the list of server
 principals, the second is role membership, and the third is server level permissions.
