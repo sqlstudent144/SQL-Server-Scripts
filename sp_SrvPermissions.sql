@@ -8,7 +8,7 @@ sp_SrvPermissions V6.1
 Kenneth Fisher
  
 http://www.sqlstudies.com
-https://github.com/sqlstudent144/SQL-Server-Scripts/edit/master/sp_SrvPermissions.sql
+https://github.com/sqlstudent144/SQL-Server-Scripts/edit/master/sp_SrvPermissions
 
 This stored procedure returns 3 data sets.  The first dataset is the list of server
 principals, the second is role membership, and the third is server level permissions.
@@ -118,6 +118,9 @@ Data is ordered as follows
 -- V6.1
 -- 06/13/2018 - Removed scripts for principal IDs under 100 (anecdotally the system IDs)
 --            - Added SET NOCOUNT ON
+-- 05/28/2019 - Add scripts & mappings for certificate & asymmetric key mapped principals.
+--            - Start cleaning up the dynamic SQL a bit to make it easier to read.
+--            - Fix SERVER ROLE scripts
 *********************************************************************************************/
 ALTER PROCEDURE dbo.sp_SrvPermissions 
 (
@@ -171,44 +174,47 @@ END
 --=========================================================================
 -- Server Principals
 SET @sql = 
-    N'SELECT principal_id AS SrvPrincipalId, name AS SrvPrincipal, type, type_desc, is_disabled, default_database_name, 
-                default_language_name, sid, ' + NCHAR(13) + 
-    N'   CASE WHEN principal_id < 100 THEN NULL ELSE ' + NCHAR(13) + 
-	N'			''IF EXISTS (SELECT * FROM sys.server_principals WHERE name = '' + QuoteName(Logins.name,'''''''') + '') '' + ' + NCHAR(13) + 
-    N'           ''DROP '' + CASE [type] WHEN ''C'' THEN NULL ' + NCHAR(13) + 
-    N'               WHEN ''K'' THEN NULL ' + NCHAR(13) + 
-    N'               WHEN ''R'' THEN ''ROLE'' ' + NCHAR(13) + 
-    N'               ELSE ''LOGIN'' END + ' + NCHAR(13) + 
-    N'           '' ''+QUOTENAME(name' + @Collation + ') END + '';'' AS DropScript, ' + NCHAR(13) + 
-    N'   CASE WHEN principal_id < 100 THEN NULL ELSE ' + NCHAR(13) + 
-	N'			''IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = '' + QuoteName(Logins.name,'''''''') + '') '' + ' + NCHAR(13) + 
-    N'           ''CREATE '' + CASE [type] WHEN ''C'' THEN NULL ' + NCHAR(13) + 
-    N'               WHEN ''K'' THEN NULL ' + NCHAR(13) + 
-    N'               WHEN ''R'' THEN ''ROLE'' ' + NCHAR(13) + 
-    N'               ELSE ''LOGIN'' END + ' + NCHAR(13) + 
-    N'           '' ''+QUOTENAME(name' + @Collation + ') END + ' + NCHAR(13) + 
-    N'           CASE WHEN [type] = (''S'') THEN ' + NCHAR(13) + 
-    N'           '' WITH PASSWORD = '' + ' + NCHAR(13) + 
-    N'           CONVERT(varchar(256), LOGINPROPERTY(name, ''PasswordHash''),1 ) + '' HASHED' +
-    CASE WHEN @Version2005orLower = 0 THEN N','' +  ' + NCHAR(13) + N'         '' SID = '' + 
-                CONVERT(varchar(85), sid, 1) +  ' + NCHAR(13) 
-                    ELSE N''' +  ' + NCHAR(13) END + 
-    N'           CASE WHEN default_database_name IS NOT NULL OR default_language_name IS NOT NULL THEN '','' 
-                ELSE '''' END ' + NCHAR(13) + 
-    N'           WHEN [type] IN (''U'',''G'') THEN '' FROM WINDOWS '' + ' + NCHAR(13) + 
-    N'           CASE WHEN default_database_name IS NOT NULL OR default_language_name IS NOT NULL THEN '' WITH '' 
-                ELSE '''' END ' + NCHAR(13) + 
-    N'           ELSE '''' END + ' + NCHAR(13) + 
-    N'           ISNULL('' DEFAULT_DATABASE = '' + QUOTENAME(default_database_name' + @Collation + N'), '''') + ' + 
-                NCHAR(13) + 
-    N'           CASE WHEN default_database_name IS NOT NULL AND default_language_name IS NOT NULL THEN '','' 
-                ELSE '''' END + ' + NCHAR(13) + 
-    N'           ISNULL('' DEFAULT_LANGUAGE = '' + QUOTENAME(default_language_name' + @Collation + N'), '''') + ' +  
-                NCHAR(13) + 
-    N'           '';'' ' + NCHAR(13) + 
-    N'       AS CreateScript ' + NCHAR(13) + 
-    N'FROM sys.server_principals Logins ' + NCHAR(13) + 
-    N'WHERE 1=1 '
+    N'SELECT Logins.principal_id AS SrvPrincipalId, Logins.name AS SrvPrincipal, Logins.type, Logins.type_desc, 
+				Logins.is_disabled, Logins.default_database_name, Logins.default_language_name, 
+				ISNULL(Cert.name,aKey.name) AS Cert_or_asymmetric_key,
+				Logins.sid, 
+       CASE WHEN Logins.principal_id < 100 THEN NULL ELSE 
+			''IF EXISTS (SELECT * FROM sys.server_principals WHERE name = '' + QuoteName(Logins.name,'''''''') + '') '' + 
+               ''DROP '' + CASE Logins.type 
+                   WHEN ''R'' THEN ''SERVER ROLE'' 
+                   ELSE ''LOGIN'' END + 
+               '' ''+QUOTENAME(Logins.name' + @Collation + ') END + '';'' AS DropScript, 
+       CASE WHEN Logins.principal_id < 100 THEN NULL ELSE 
+			''IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = '' + QuoteName(Logins.name,'''''''') + '') '' + 
+               ''CREATE '' + CASE Logins.type 
+                   WHEN ''R'' THEN ''SERVER ROLE'' 
+                   ELSE ''LOGIN'' END + 
+               '' ''+QUOTENAME(Logins.name' + @Collation + ') END + 
+               CASE WHEN Logins.type = (''S'') THEN '' WITH PASSWORD = '' + 
+                    CONVERT(varchar(256), LOGINPROPERTY(Logins.name, ''PasswordHash''),1 ) + '' HASHED' +
+                         CASE WHEN @Version2005orLower = 0 THEN N','' +  
+	                '' SID = '' + CONVERT(varchar(85), Logins.sid, 1) ' 
+                    ELSE N''' +  ' END + '
+               WHEN Logins.type IN (''U'',''G'') THEN '' FROM WINDOWS ''  
+               WHEN Logins.type = ''C'' THEN ISNULL('' FROM CERTIFICATE '' + QUOTENAME(Cert.name),'''')
+               WHEN Logins.type = ''K'' THEN ISNULL('' FROM ASYMMETRIC KEY '' + QUOTENAME(aKey.name),'''')
+               ELSE '''' END + 
+			   CASE WHEN Logins.type IN (''S'',''U'',''G'') THEN -- Note: Types, S, U and G are the only ones that have additional options.
+				   CASE WHEN Logins.default_database_name IS NOT NULL OR Logins.default_language_name IS NOT NULL THEN
+						CASE WHEN Logins.Type = ''S'' THEN '','' ELSE '' WITH '' END
+				   ELSE '''' END +
+				   ISNULL('' DEFAULT_DATABASE = '' + QUOTENAME(Logins.default_database_name' + @Collation + N'), '''') + 
+				   CASE WHEN Logins.default_database_name IS NOT NULL AND Logins.default_language_name IS NOT NULL THEN '','' ELSE '''' END + 
+				   ISNULL('' DEFAULT_LANGUAGE = '' + QUOTENAME(Logins.default_language_name' + @Collation + N'), '''') 
+			   ELSE '''' END +
+               '';'' 
+           AS CreateScript 
+    FROM sys.server_principals Logins 
+	LEFT OUTER JOIN sys.certificates Cert
+		ON Logins.sid = Cert.sid
+	LEFT OUTER JOIN sys.asymmetric_keys aKey
+		ON Logins.sid = aKey.sid
+    WHERE 1=1 '
    
 IF LEN(ISNULL(@Principal,@Role)) > 0 
     IF @Print = 1
@@ -246,6 +252,7 @@ BEGIN
 		is_disabled bit NULL,
 		default_database_name sysname NULL,
 		default_language_name sysname NULL,
+		Cert_or_asymmetric_key sysname NULL,
 		sid varbinary(85) NULL,
 		DropScript nvarchar(max) NULL,
 		CreateScript nvarchar(max) NULL
@@ -444,7 +451,7 @@ BEGIN
 	ELSE -- 'Default' or no match
 	BEGIN
 		SELECT SrvPrincipal, type, type_desc, is_disabled, default_database_name, 
-				default_language_name, sid, DropScript, CreateScript 
+				default_language_name, Cert_or_asymmetric_key, sid, DropScript, CreateScript 
 		FROM ##SrvPrincipals ORDER BY SrvPrincipal
 		IF LEN(@Role) > 0
 			SELECT LoginName, RoleName, DropScript, AddScript FROM ##SrvRoles ORDER BY RoleName, LoginName
