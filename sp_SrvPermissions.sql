@@ -118,6 +118,12 @@ Data is ordered as follows
 -- V6.1
 -- 06/13/2018 - Removed scripts for principal IDs under 100 (anecdotally the system IDs)
 --            - Added SET NOCOUNT ON
+-- 05/28/2019 - Add scripts & mappings for certificate & asymmetric key mapped principals.
+--            - Start cleaning up the dynamic SQL a bit to make it easier to read.
+--            - Fix SERVER ROLE scripts
+--            - Add CHECK_POLICY and CHECK_EXPIRATION
+--            - Add script support for disabled 
+--            - Add script support for a single credential.  Will not support multiple credentials.
 *********************************************************************************************/
 ALTER PROCEDURE dbo.sp_SrvPermissions 
 (
@@ -171,44 +177,61 @@ END
 --=========================================================================
 -- Server Principals
 SET @sql = 
-    N'SELECT principal_id AS SrvPrincipalId, name AS SrvPrincipal, type, type_desc, is_disabled, default_database_name, 
-                default_language_name, sid, ' + NCHAR(13) + 
-    N'   CASE WHEN principal_id < 100 THEN NULL ELSE ' + NCHAR(13) + 
-	N'			''IF EXISTS (SELECT * FROM sys.server_principals WHERE name = '' + QuoteName(Logins.name,'''''''') + '') '' + ' + NCHAR(13) + 
-    N'           ''DROP '' + CASE [type] WHEN ''C'' THEN NULL ' + NCHAR(13) + 
-    N'               WHEN ''K'' THEN NULL ' + NCHAR(13) + 
-    N'               WHEN ''R'' THEN ''ROLE'' ' + NCHAR(13) + 
-    N'               ELSE ''LOGIN'' END + ' + NCHAR(13) + 
-    N'           '' ''+QUOTENAME(name' + @Collation + ') END + '';'' AS DropScript, ' + NCHAR(13) + 
-    N'   CASE WHEN principal_id < 100 THEN NULL ELSE ' + NCHAR(13) + 
-	N'			''IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = '' + QuoteName(Logins.name,'''''''') + '') '' + ' + NCHAR(13) + 
-    N'           ''CREATE '' + CASE [type] WHEN ''C'' THEN NULL ' + NCHAR(13) + 
-    N'               WHEN ''K'' THEN NULL ' + NCHAR(13) + 
-    N'               WHEN ''R'' THEN ''ROLE'' ' + NCHAR(13) + 
-    N'               ELSE ''LOGIN'' END + ' + NCHAR(13) + 
-    N'           '' ''+QUOTENAME(name' + @Collation + ') END + ' + NCHAR(13) + 
-    N'           CASE WHEN [type] = (''S'') THEN ' + NCHAR(13) + 
-    N'           '' WITH PASSWORD = '' + ' + NCHAR(13) + 
-    N'           CONVERT(varchar(256), LOGINPROPERTY(name, ''PasswordHash''),1 ) + '' HASHED' +
-    CASE WHEN @Version2005orLower = 0 THEN N','' +  ' + NCHAR(13) + N'         '' SID = '' + 
-                CONVERT(varchar(85), sid, 1) +  ' + NCHAR(13) 
-                    ELSE N''' +  ' + NCHAR(13) END + 
-    N'           CASE WHEN default_database_name IS NOT NULL OR default_language_name IS NOT NULL THEN '','' 
-                ELSE '''' END ' + NCHAR(13) + 
-    N'           WHEN [type] IN (''U'',''G'') THEN '' FROM WINDOWS '' + ' + NCHAR(13) + 
-    N'           CASE WHEN default_database_name IS NOT NULL OR default_language_name IS NOT NULL THEN '' WITH '' 
-                ELSE '''' END ' + NCHAR(13) + 
-    N'           ELSE '''' END + ' + NCHAR(13) + 
-    N'           ISNULL('' DEFAULT_DATABASE = '' + QUOTENAME(default_database_name' + @Collation + N'), '''') + ' + 
-                NCHAR(13) + 
-    N'           CASE WHEN default_database_name IS NOT NULL AND default_language_name IS NOT NULL THEN '','' 
-                ELSE '''' END + ' + NCHAR(13) + 
-    N'           ISNULL('' DEFAULT_LANGUAGE = '' + QUOTENAME(default_language_name' + @Collation + N'), '''') + ' +  
-                NCHAR(13) + 
-    N'           '';'' ' + NCHAR(13) + 
-    N'       AS CreateScript ' + NCHAR(13) + 
-    N'FROM sys.server_principals Logins ' + NCHAR(13) + 
-    N'WHERE 1=1 '
+    N'SELECT Logins.principal_id AS SrvPrincipalId, Logins.name AS SrvPrincipal, Logins.type, Logins.type_desc, 
+				Logins.is_disabled, Logins.default_database_name, Logins.default_language_name, 
+				CASE sql_logins.is_policy_checked WHEN 1 THEN ''ON'' WHEN 0 THEN ''OFF'' END AS check_policy, 
+				CASE sql_logins.is_expiration_checked WHEN 1 THEN ''ON'' WHEN 0 THEN ''OFF'' END AS check_expiration, 
+				ISNULL(Cert.name,aKey.name) AS Cert_or_asymmetric_key,
+				Logins.sid, 
+       CASE WHEN Logins.principal_id < 100 THEN NULL ELSE 
+			''IF EXISTS (SELECT * FROM sys.server_principals WHERE name = '' + QuoteName(Logins.name,'''''''') + '') '' + 
+               ''DROP '' + CASE Logins.type 
+                   WHEN ''R'' THEN ''SERVER ROLE'' 
+                   ELSE ''LOGIN'' END + 
+               '' ''+QUOTENAME(Logins.name' + @Collation + ') END + '';'' AS DropScript, 
+       CASE WHEN Logins.principal_id < 100 THEN NULL ELSE 
+			''IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = '' + QuoteName(Logins.name,'''''''') + '') '' + 
+               ''CREATE '' + CASE Logins.type 
+                   WHEN ''R'' THEN ''SERVER ROLE'' 
+                   ELSE ''LOGIN'' END + 
+               '' ''+QUOTENAME(Logins.name' + @Collation + ') END + 
+               CASE WHEN Logins.type = (''S'') THEN '' WITH PASSWORD = '' + 
+                    CONVERT(varchar(256), LOGINPROPERTY(Logins.name, ''PasswordHash''),1 ) + '' HASHED' +
+                         CASE WHEN @Version2005orLower = 0 THEN N','' +  
+	                '' SID = '' + CONVERT(varchar(85), Logins.sid, 1) ' 
+                    ELSE N''' +  ' END + '
+               WHEN Logins.type IN (''U'',''G'') THEN '' FROM WINDOWS ''  
+               WHEN Logins.type = ''C'' THEN ISNULL('' FROM CERTIFICATE '' + QUOTENAME(Cert.name),'''')
+               WHEN Logins.type = ''K'' THEN ISNULL('' FROM ASYMMETRIC KEY '' + QUOTENAME(aKey.name),'''')
+               ELSE '''' END + 
+			   CASE WHEN Logins.type IN (''S'',''U'',''G'') THEN -- Note: Types, S, U and G are the only ones that have additional options.
+				   CASE WHEN Logins.default_database_name IS NOT NULL OR Logins.default_language_name IS NOT NULL THEN
+						CASE WHEN Logins.Type = ''S'' THEN '','' ELSE '' WITH '' END
+				   ELSE '''' END +
+				   ISNULL('' DEFAULT_DATABASE = '' + QUOTENAME(Logins.default_database_name' + @Collation + N'), '''') + 
+				   CASE WHEN Logins.default_database_name IS NOT NULL AND Logins.default_language_name IS NOT NULL THEN '','' ELSE '''' END + 
+				   ISNULL('' DEFAULT_LANGUAGE = '' + QUOTENAME(Logins.default_language_name' + @Collation + N'), '''') +
+				   CASE WHEN Logins.type = ''S'' THEN
+						ISNULL('', CHECK_EXPIRATION = '' + CASE WHEN sql_logins.is_expiration_checked = 1 THEN ''ON'' ELSE ''OFF'' END, '''') +
+						ISNULL('', CHECK_POLICY	= ''	 + CASE WHEN sql_logins.is_policy_checked = 1 THEN ''ON'' ELSE ''OFF'' END, '''') +
+						ISNULL('', CREDENTIAL = ''		 + QUOTENAME(Creds.name), '''')
+					   ELSE '''' END
+			   ELSE '''' END +
+               ''; '' +
+			   CASE WHEN Logins.is_disabled = 1 THEN ''ALTER LOGIN '' + QUOTENAME(Logins.name) + '' DISABLE; '' ELSE '''' END
+           AS CreateScript 
+    FROM sys.server_principals Logins 
+	LEFT OUTER JOIN sys.certificates Cert
+		ON Logins.sid = Cert.sid
+	LEFT OUTER JOIN sys.asymmetric_keys aKey
+		ON Logins.sid = aKey.sid
+	LEFT OUTER JOIN sys.sql_logins
+		ON Logins.sid = sql_logins.sid
+	LEFT OUTER JOIN sys.server_principal_credentials LoginCreds
+		ON Logins.principal_id = LoginCreds.principal_id
+	LEFT OUTER JOIN sys.credentials Creds
+		ON LoginCreds.credential_id = Creds.credential_id
+    WHERE 1=1 '
    
 IF LEN(ISNULL(@Principal,@Role)) > 0 
     IF @Print = 1
@@ -246,6 +269,9 @@ BEGIN
 		is_disabled bit NULL,
 		default_database_name sysname NULL,
 		default_language_name sysname NULL,
+		[check_policy] char(3) NULL,
+		[check_expiration] char(3) NULL,
+		Cert_or_asymmetric_key sysname NULL,
 		sid varbinary(85) NULL,
 		DropScript nvarchar(max) NULL,
 		CreateScript nvarchar(max) NULL
@@ -258,21 +284,21 @@ END
 --=========================================================================
 -- Server level roles
 SET @sql = 
-    N'SELECT Logins.principal_id AS LoginPrincipalId, Logins.name AS LoginName, Roles.name AS RoleName, ' + NCHAR(13) + 
-    N'   CASE WHEN Logins.principal_id < 100 THEN NULL ELSE ' + NCHAR(13) + 
-    N'   ''EXEC sp_dropsrvrolemember @loginame = ''+QUOTENAME(Logins.name' + @Collation + 
-            ','''''''')+'', @rolename = ''+QUOTENAME(Roles.name' + @Collation + 
-            ','''''''') + '';'' END AS DropScript, ' + NCHAR(13) + 
-    N'   CASE WHEN Logins.principal_id < 100 THEN NULL ELSE ' + NCHAR(13) + 
-    N'   ''EXEC sp_addsrvrolemember @loginame = ''+QUOTENAME(Logins.name' + @Collation + 
-            ','''''''')+'', @rolename = ''+QUOTENAME(Roles.name' + @Collation + 
-            ','''''''') + '';'' END AS AddScript ' + NCHAR(13) + 
-    N'FROM sys.server_role_members RoleMembers ' + NCHAR(13) + 
-    N'JOIN sys.server_principals Logins ' + NCHAR(13) + 
-    N'   ON RoleMembers.member_principal_id = Logins.principal_id ' + NCHAR(13) + 
-    N'JOIN sys.server_principals Roles ' + NCHAR(13) + 
-    N'   ON RoleMembers.role_principal_id = Roles.principal_id ' + NCHAR(13) + 
-    N'WHERE 1=1 '
+    N'SELECT Logins.principal_id AS LoginPrincipalId, Logins.name AS LoginName, Roles.name AS RoleName, 
+       CASE WHEN Logins.principal_id < 100 THEN NULL ELSE 
+       ''EXEC sp_dropsrvrolemember @loginame = ''+QUOTENAME(Logins.name' + @Collation + 
+          ','''''''')+'', @rolename = ''+QUOTENAME(Roles.name' + @Collation + 
+          ','''''''') + '';'' END AS DropScript, 
+       CASE WHEN Logins.principal_id < 100 THEN NULL ELSE 
+       ''EXEC sp_addsrvrolemember @loginame = ''+QUOTENAME(Logins.name' + @Collation + 
+          ','''''''')+'', @rolename = ''+QUOTENAME(Roles.name' + @Collation + 
+          ','''''''') + '';'' END AS AddScript 
+    FROM sys.server_role_members RoleMembers 
+    JOIN sys.server_principals Logins 
+       ON RoleMembers.member_principal_id = Logins.principal_id 
+    JOIN sys.server_principals Roles 
+       ON RoleMembers.role_principal_id = Roles.principal_id 
+    WHERE 1=1 '
    
 IF LEN(ISNULL(@Principal,'')) > 0
     IF @Print = 1
@@ -324,29 +350,29 @@ END
 --=========================================================================
 -- Server Permissions
 SET @sql =
-    N'SELECT Grantee.principal_id AS GranteePrincipalId, Grantee.name AS GranteeName, ' + NCHAR(13) + 
-    N'   Grantor.name AS GrantorName, Permission.class_desc, Permission.permission_name, ' + NCHAR(13) + 
-    N'   Permission.state_desc,  ' + NCHAR(13) + 
-    N'   CASE WHEN Grantee.principal_id < 100 THEN NULL ELSE ' + NCHAR(13) + 
-    N'   ''REVOKE '' + ' + NCHAR(13) + 
-    N'       CASE WHEN Permission.class_desc = ''ENDPOINT'' THEN NULL ' + NCHAR(13) + 
-    N'       WHEN Permission.[state]  = ''W'' THEN ''GRANT OPTION FOR '' ELSE '''' END + ' + NCHAR(13) + 
-    N'       '' '' + Permission.permission_name' + @Collation + ' +  ' + NCHAR(13) + 
-    N'       '' FROM '' + QUOTENAME(Grantee.name' + @Collation + ')  + ''; '' END AS RevokeScript, ' + NCHAR(13) + 
-    N'   CASE WHEN Grantee.principal_id < 100 THEN NULL ELSE ' + NCHAR(13) + 
-    N'   CASE WHEN Permission.class_desc = ''ENDPOINT'' THEN NULL ' + NCHAR(13) + 
-    N'       WHEN Permission.[state]  = ''W'' THEN ''GRANT'' ELSE Permission.state_desc' + @Collation + 
-            ' END + ' + NCHAR(13) + 
-    N'       '' '' + Permission.permission_name' + @Collation + ' +  ' + NCHAR(13) + 
-    N'       '' TO '' + QUOTENAME(Grantee.name' + @Collation + ')  + '' '' +  ' + NCHAR(13) + 
-    N'       CASE WHEN Permission.[state]  = ''W'' THEN '' WITH GRANT OPTION '' ELSE '''' END +  ' + NCHAR(13) + 
-    N'       '' AS ''+ QUOTENAME(Grantor.name' + @Collation + ') + '';'' END AS GrantScript ' + NCHAR(13) + 
-    N'FROM sys.server_permissions Permission ' + NCHAR(13) + 
-    N'JOIN sys.server_principals Grantee ' + NCHAR(13) + 
-    N'   ON Permission.grantee_principal_id = Grantee.principal_id ' + NCHAR(13) + 
-    N'JOIN sys.server_principals Grantor ' + NCHAR(13) + 
-    N'   ON Permission.grantor_principal_id = Grantor.principal_id ' + NCHAR(13) + 
-    N'WHERE 1=1 '
+    N'SELECT Grantee.principal_id AS GranteePrincipalId, Grantee.name AS GranteeName, 
+       Grantor.name AS GrantorName, Permission.class_desc, Permission.permission_name, 
+       Permission.state_desc,  
+       CASE WHEN Grantee.principal_id < 100 THEN NULL ELSE 
+       ''REVOKE '' + 
+           CASE WHEN Permission.class_desc = ''ENDPOINT'' THEN NULL 
+           WHEN Permission.[state]  = ''W'' THEN ''GRANT OPTION FOR '' ELSE '''' END + 
+           '' '' + Permission.permission_name' + @Collation + ' +  
+           '' FROM '' + QUOTENAME(Grantee.name' + @Collation + ')  + ''; '' END AS RevokeScript, 
+       CASE WHEN Grantee.principal_id < 100 THEN NULL ELSE 
+       CASE WHEN Permission.class_desc = ''ENDPOINT'' THEN NULL 
+           WHEN Permission.[state]  = ''W'' THEN ''GRANT'' ELSE Permission.state_desc' + @Collation + 
+          ' END + 
+           '' '' + Permission.permission_name' + @Collation + ' +  
+           '' TO '' + QUOTENAME(Grantee.name' + @Collation + ')  + '' '' +  
+           CASE WHEN Permission.[state]  = ''W'' THEN '' WITH GRANT OPTION '' ELSE '''' END +  
+           '' AS ''+ QUOTENAME(Grantor.name' + @Collation + ') + '';'' END AS GrantScript 
+    FROM sys.server_permissions Permission 
+    JOIN sys.server_principals Grantee 
+       ON Permission.grantee_principal_id = Grantee.principal_id 
+    JOIN sys.server_principals Grantor 
+       ON Permission.grantor_principal_id = Grantor.principal_id 
+    WHERE 1=1 '
    
 IF LEN(ISNULL(@Principal,@Role)) > 0
     IF @Print = 1
@@ -444,7 +470,8 @@ BEGIN
 	ELSE -- 'Default' or no match
 	BEGIN
 		SELECT SrvPrincipal, type, type_desc, is_disabled, default_database_name, 
-				default_language_name, sid, DropScript, CreateScript 
+				default_language_name, [check_policy], [check_expiration], Cert_or_asymmetric_key, 
+				sid, DropScript, CreateScript 
 		FROM ##SrvPrincipals ORDER BY SrvPrincipal
 		IF LEN(@Role) > 0
 			SELECT LoginName, RoleName, DropScript, AddScript FROM ##SrvRoles ORDER BY RoleName, LoginName
