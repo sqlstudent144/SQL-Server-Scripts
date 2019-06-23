@@ -55,32 +55,32 @@ Parameters:
     @DBName
         If NOT NULL then only return those principals and information about them where the 
         principal exists within the DB specified.
-	@UseLikeSearch
-		When this is set to 1 (the default) then the search parameters will use LIKE (and 
-		%'s will be added around the @Principal and @Role parameters).  
+    @UseLikeSearch
+        When this is set to 1 (the default) then the search parameters will use LIKE (and 
+        %'s will be added around the @Principal and @Role parameters).  
         When set to 0 searchs will use =.
-	@IncludeMSShipped
-		When this is set to 1 (the default) then all principals will be included.  When set 
-		to 0 the fixed server roles and SA and Public principals will be excluded.
-	@DropTempTables
-		When this is set to 1 (the default) the temp tables used are dropped.  If it's 0
-		then the tempt ables are kept for references after the code has finished.
-		The temp tables are:
-			##SrvPrincipals
-			##SrvRoles 
-			##SrvPermissions
-	@Output
-		What type of output is desired.
-		Default - Either 'Default' or it doesn't match any of the allowed values then the SP
-					will return the standard 3 outputs.
-		None - No output at all.  Usually used if you keeping the temp tables to do your own
-					reporting.
-		CreateOnly - Only return the create scripts where they aren't NULL.
-		DropOnly - Only return the drop scripts where they aren't NULL.
-		ScriptsOnly - Return drop and create scripts where they aren't NULL.
-		Report - Returns one output with one row per principal and a comma delimited list of
-					roles the principal is a member of and a comma delimited list of the 
-					individual permissions they have.
+    @IncludeMSShipped
+        When this is set to 1 (the default) then all principals will be included.  When set 
+        to 0 the fixed server roles and SA and Public principals will be excluded.
+    @DropTempTables
+        When this is set to 1 (the default) the temp tables used are dropped.  If it's 0
+        then the tempt ables are kept for references after the code has finished.
+        The temp tables are:
+            ##SrvPrincipals
+            ##SrvRoles 
+            ##SrvPermissions
+    @Output
+        What type of output is desired.
+        Default - Either 'Default' or it doesn't match any of the allowed values then the SP
+                    will return the standard 3 outputs.
+        None - No output at all.  Usually used if you keeping the temp tables to do your own
+                    reporting.
+        CreateOnly - Only return the create scripts where they aren't NULL.
+        DropOnly - Only return the drop scripts where they aren't NULL.
+        ScriptsOnly - Return drop and create scripts where they aren't NULL.
+        Report - Returns one output with one row per principal and a comma delimited list of
+                    roles the principal is a member of and a comma delimited list of the 
+                    individual permissions they have.
     @Print
         Defaults to 0, but if a 1 is passed in then the queries are not run but printed
         out instead.  This is primarily for debugging.
@@ -133,8 +133,8 @@ ALTER PROCEDURE dbo.sp_SrvPermissions
     @DBName sysname = NULL,
     @UseLikeSearch bit = 1,
     @IncludeMSShipped bit = 1,
-	@DropTempTables bit = 1,
-	@Output varchar(30) = 'Default',
+    @DropTempTables bit = 1,
+    @Output varchar(30) = 'Default',
     @Print bit = 0
 )
 AS
@@ -161,36 +161,36 @@ DECLARE @sql nvarchar(max)
 DECLARE @LikeOperator nvarchar(4)
 
 IF @UseLikeSearch = 1
-	SET @LikeOperator = N'LIKE'
+    SET @LikeOperator = N'LIKE'
 ELSE 
-	SET @LikeOperator = N'='
+    SET @LikeOperator = N'='
 
 IF @UseLikeSearch = 1
 BEGIN 
-	IF LEN(ISNULL(@Principal,'')) > 0
-		SET @Principal = N'%' + @Principal + N'%'
+    IF LEN(ISNULL(@Principal,'')) > 0
+        SET @Principal = N'%' + @Principal + N'%'
         
-	IF LEN(ISNULL(@Role,'')) > 0
-		SET @Role = N'%' + @Role+ N'%'
+    IF LEN(ISNULL(@Role,'')) > 0
+        SET @Role = N'%' + @Role+ N'%'
 END
 
 --=========================================================================
 -- Server Principals
 SET @sql = 
     N'SELECT Logins.principal_id AS SrvPrincipalId, Logins.name AS SrvPrincipal, Logins.type, Logins.type_desc, 
-				Logins.is_disabled, Logins.default_database_name, Logins.default_language_name, 
-				CASE sql_logins.is_policy_checked WHEN 1 THEN ''ON'' WHEN 0 THEN ''OFF'' END AS check_policy, 
-				CASE sql_logins.is_expiration_checked WHEN 1 THEN ''ON'' WHEN 0 THEN ''OFF'' END AS check_expiration, 
-				ISNULL(Cert.name,aKey.name) AS Cert_or_asymmetric_key,
-				Logins.sid, 
+                Logins.is_disabled, Logins.default_database_name, Logins.default_language_name, 
+                CASE sql_logins.is_policy_checked WHEN 1 THEN ''ON'' WHEN 0 THEN ''OFF'' END AS check_policy, 
+                CASE sql_logins.is_expiration_checked WHEN 1 THEN ''ON'' WHEN 0 THEN ''OFF'' END AS check_expiration, 
+                ISNULL(Cert.name,aKey.name) AS Cert_or_asymmetric_key,
+                Logins.sid, 
        CASE WHEN Logins.principal_id < 100 THEN NULL ELSE 
-			''IF EXISTS (SELECT * FROM sys.server_principals WHERE name = '' + QuoteName(Logins.name,'''''''') + '') '' + 
+            ''IF EXISTS (SELECT * FROM sys.server_principals WHERE name = '' + QuoteName(Logins.name,'''''''') + '') '' + 
                ''DROP '' + CASE Logins.type 
                    WHEN ''R'' THEN ''SERVER ROLE'' 
                    ELSE ''LOGIN'' END + 
                '' ''+QUOTENAME(Logins.name' + @Collation + ') END + '';'' AS DropScript, 
        CASE WHEN Logins.principal_id < 100 THEN NULL ELSE 
-			''IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = '' + QuoteName(Logins.name,'''''''') + '') '' + 
+            ''IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = '' + QuoteName(Logins.name,'''''''') + '') '' + 
                ''CREATE '' + CASE Logins.type 
                    WHEN ''R'' THEN ''SERVER ROLE'' 
                    ELSE ''LOGIN'' END + 
@@ -198,39 +198,39 @@ SET @sql =
                CASE WHEN Logins.type = (''S'') THEN '' WITH PASSWORD = '' + 
                     CONVERT(varchar(256), LOGINPROPERTY(Logins.name, ''PasswordHash''),1 ) + '' HASHED' +
                          CASE WHEN @Version2005orLower = 0 THEN N','' +  
-	                '' SID = '' + CONVERT(varchar(85), Logins.sid, 1) ' 
+                    '' SID = '' + CONVERT(varchar(85), Logins.sid, 1) ' 
                     ELSE N''' +  ' END + '
                WHEN Logins.type IN (''U'',''G'') THEN '' FROM WINDOWS ''  
                WHEN Logins.type = ''C'' THEN ISNULL('' FROM CERTIFICATE '' + QUOTENAME(Cert.name),'''')
                WHEN Logins.type = ''K'' THEN ISNULL('' FROM ASYMMETRIC KEY '' + QUOTENAME(aKey.name),'''')
                ELSE '''' END + 
-			   CASE WHEN Logins.type IN (''S'',''U'',''G'') THEN -- Note: Types, S, U and G are the only ones that have additional options.
-				   CASE WHEN Logins.default_database_name IS NOT NULL OR Logins.default_language_name IS NOT NULL THEN
-						CASE WHEN Logins.Type = ''S'' THEN '','' ELSE '' WITH '' END
-				   ELSE '''' END +
-				   ISNULL('' DEFAULT_DATABASE = '' + QUOTENAME(Logins.default_database_name' + @Collation + N'), '''') + 
-				   CASE WHEN Logins.default_database_name IS NOT NULL AND Logins.default_language_name IS NOT NULL THEN '','' ELSE '''' END + 
-				   ISNULL('' DEFAULT_LANGUAGE = '' + QUOTENAME(Logins.default_language_name' + @Collation + N'), '''') +
-				   CASE WHEN Logins.type = ''S'' THEN
-						ISNULL('', CHECK_EXPIRATION = '' + CASE WHEN sql_logins.is_expiration_checked = 1 THEN ''ON'' ELSE ''OFF'' END, '''') +
-						ISNULL('', CHECK_POLICY	= ''	 + CASE WHEN sql_logins.is_policy_checked = 1 THEN ''ON'' ELSE ''OFF'' END, '''') +
-						ISNULL('', CREDENTIAL = ''		 + QUOTENAME(Creds.name), '''')
-					   ELSE '''' END
-			   ELSE '''' END +
+               CASE WHEN Logins.type IN (''S'',''U'',''G'') THEN -- Note: Types, S, U and G are the only ones that have additional options.
+                   CASE WHEN Logins.default_database_name IS NOT NULL OR Logins.default_language_name IS NOT NULL THEN
+                        CASE WHEN Logins.Type = ''S'' THEN '','' ELSE '' WITH '' END
+                   ELSE '''' END +
+                   ISNULL('' DEFAULT_DATABASE = '' + QUOTENAME(Logins.default_database_name' + @Collation + N'), '''') + 
+                   CASE WHEN Logins.default_database_name IS NOT NULL AND Logins.default_language_name IS NOT NULL THEN '','' ELSE '''' END + 
+                   ISNULL('' DEFAULT_LANGUAGE = '' + QUOTENAME(Logins.default_language_name' + @Collation + N'), '''') +
+                   CASE WHEN Logins.type = ''S'' THEN
+                        ISNULL('', CHECK_EXPIRATION = '' + CASE WHEN sql_logins.is_expiration_checked = 1 THEN ''ON'' ELSE ''OFF'' END, '''') +
+                        ISNULL('', CHECK_POLICY    = ''     + CASE WHEN sql_logins.is_policy_checked = 1 THEN ''ON'' ELSE ''OFF'' END, '''') +
+                        ISNULL('', CREDENTIAL = ''         + QUOTENAME(Creds.name), '''')
+                       ELSE '''' END
+               ELSE '''' END +
                ''; '' +
-			   CASE WHEN Logins.is_disabled = 1 THEN ''ALTER LOGIN '' + QUOTENAME(Logins.name) + '' DISABLE; '' ELSE '''' END
+               CASE WHEN Logins.is_disabled = 1 THEN ''ALTER LOGIN '' + QUOTENAME(Logins.name) + '' DISABLE; '' ELSE '''' END
            AS CreateScript 
     FROM sys.server_principals Logins 
-	LEFT OUTER JOIN sys.certificates Cert
-		ON Logins.sid = Cert.sid
-	LEFT OUTER JOIN sys.asymmetric_keys aKey
-		ON Logins.sid = aKey.sid
-	LEFT OUTER JOIN sys.sql_logins
-		ON Logins.sid = sql_logins.sid
-	LEFT OUTER JOIN sys.server_principal_credentials LoginCreds
-		ON Logins.principal_id = LoginCreds.principal_id
-	LEFT OUTER JOIN sys.credentials Creds
-		ON LoginCreds.credential_id = Creds.credential_id
+    LEFT OUTER JOIN sys.certificates Cert
+        ON Logins.sid = Cert.sid
+    LEFT OUTER JOIN sys.asymmetric_keys aKey
+        ON Logins.sid = aKey.sid
+    LEFT OUTER JOIN sys.sql_logins
+        ON Logins.sid = sql_logins.sid
+    LEFT OUTER JOIN sys.server_principal_credentials LoginCreds
+        ON Logins.principal_id = LoginCreds.principal_id
+    LEFT OUTER JOIN sys.credentials Creds
+        ON LoginCreds.credential_id = Creds.credential_id
     WHERE 1=1 '
    
 IF LEN(ISNULL(@Principal,@Role)) > 0 
@@ -250,34 +250,34 @@ IF @DBName IS NOT NULL
                                                         WHERE type IN (''G'',''S'',''U'',''K'',''C''))'
 
 IF @IncludeMSShipped = 0
-	SET @sql = @sql + NCHAR(13) + N'  AND Logins.is_fixed_role = 0 ' + NCHAR(13) + 
-				'  AND Logins.name NOT IN (''sa'',''public'') '
-	  
+    SET @sql = @sql + NCHAR(13) + N'  AND Logins.is_fixed_role = 0 ' + NCHAR(13) + 
+                '  AND Logins.name NOT IN (''sa'',''public'') '
+      
 IF @Print = 1
     PRINT '-- Server Principals' + NCHAR(13) + @sql + NCHAR(13) + NCHAR(13)
 ELSE
 BEGIN
-	IF object_id('tempdb..##SrvPrincipals') IS NOT NULL
-		DROP TABLE ##SrvPrincipals
+    IF object_id('tempdb..##SrvPrincipals') IS NOT NULL
+        DROP TABLE ##SrvPrincipals
 
-	-- Create temp table to store the data in
-	CREATE TABLE ##SrvPrincipals (
-		SrvPrincipalId int NULL,
-		SrvPrincipal sysname NULL,
-		type char(1) NULL,
-		type_desc nchar(60) NULL,
-		is_disabled bit NULL,
-		default_database_name sysname NULL,
-		default_language_name sysname NULL,
-		[check_policy] char(3) NULL,
-		[check_expiration] char(3) NULL,
-		Cert_or_asymmetric_key sysname NULL,
-		sid varbinary(85) NULL,
-		DropScript nvarchar(max) NULL,
-		CreateScript nvarchar(max) NULL
-		)
+    -- Create temp table to store the data in
+    CREATE TABLE ##SrvPrincipals (
+        SrvPrincipalId int NULL,
+        SrvPrincipal sysname NULL,
+        type char(1) NULL,
+        type_desc nchar(60) NULL,
+        is_disabled bit NULL,
+        default_database_name sysname NULL,
+        default_language_name sysname NULL,
+        [check_policy] char(3) NULL,
+        [check_expiration] char(3) NULL,
+        Cert_or_asymmetric_key sysname NULL,
+        sid varbinary(85) NULL,
+        DropScript nvarchar(max) NULL,
+        CreateScript nvarchar(max) NULL
+        )
     
-	SET @sql =  N'INSERT INTO ##SrvPrincipals ' + NCHAR(13) + @sql
+    SET @sql =  N'INSERT INTO ##SrvPrincipals ' + NCHAR(13) + @sql
 
     EXEC sp_executesql @sql, N'@Principal sysname, @Role sysname, @Type varchar(30)', @Principal, @Role, @Type
 END    
@@ -323,26 +323,26 @@ IF @DBName IS NOT NULL
                                                         WHERE type IN (''G'',''S'',''U'',''K'',''C''))'
   
 IF @IncludeMSShipped = 0
-	SET @sql = @sql + NCHAR(13) + N'  AND Logins.is_fixed_role = 0 ' + NCHAR(13) + 
-				'  AND Logins.name NOT IN (''sa'',''public'') '
+    SET @sql = @sql + NCHAR(13) + N'  AND Logins.is_fixed_role = 0 ' + NCHAR(13) + 
+                '  AND Logins.name NOT IN (''sa'',''public'') '
 
 IF @Print = 1
     PRINT '-- Server Role Members' + NCHAR(13) + @sql + NCHAR(13) + NCHAR(13)
 ELSE
 BEGIN
-	IF object_id('tempdb..##SrvRoles') IS NOT NULL
-		DROP TABLE ##SrvRoles
+    IF object_id('tempdb..##SrvRoles') IS NOT NULL
+        DROP TABLE ##SrvRoles
 
     -- Create temp table to store the data in
     CREATE TABLE ##SrvRoles (
-		LoginPrincipalId int NULL,
+        LoginPrincipalId int NULL,
         LoginName sysname NULL,
         RoleName sysname NULL,
         DropScript nvarchar(max) NULL,
         AddScript nvarchar(max) NULL
         )
 
-	SET @sql =  'INSERT INTO ##SrvRoles ' + NCHAR(13) + @sql
+    SET @sql =  'INSERT INTO ##SrvRoles ' + NCHAR(13) + @sql
 
     EXEC sp_executesql @sql, N'@Principal sysname, @Role sysname, @Type nvarchar(30)', @Principal, @Role, @Type
 END
@@ -391,20 +391,20 @@ IF @DBName IS NOT NULL
                                     WHERE type IN (''G'',''S'',''U'',''K'',''C''))'
  
 IF @IncludeMSShipped = 0
-	SET @sql = @sql + NCHAR(13) + N'  AND Grantee.is_fixed_role = 0 ' + NCHAR(13) + 
-				'  AND Grantee.name NOT IN (''sa'',''public'') '
+    SET @sql = @sql + NCHAR(13) + N'  AND Grantee.is_fixed_role = 0 ' + NCHAR(13) + 
+                '  AND Grantee.name NOT IN (''sa'',''public'') '
 
 IF @Print = 1
     PRINT '-- Server Permissions' + NCHAR(13) + @sql + NCHAR(13) + NCHAR(13)
 ELSE
 BEGIN
-	IF object_id('tempdb..##SrvPermissions') IS NOT NULL
-		DROP TABLE ##SrvPermissions
+    IF object_id('tempdb..##SrvPermissions') IS NOT NULL
+        DROP TABLE ##SrvPermissions
 
     -- Create temp table to store the data in
     CREATE TABLE ##SrvPermissions (
         GranteePrincipalId int NULL,
-		GranteeName sysname NULL,
+        GranteeName sysname NULL,
         GrantorName sysname NULL,
         class_desc nvarchar(60) NULL,
         permission_name nvarchar(128) NULL,
@@ -422,70 +422,70 @@ END
 IF @Print <> 1
 BEGIN
 
-	IF @Output = 'None'
-		PRINT ''
-	ELSE IF @Output = 'CreateOnly'
-	BEGIN
-		SELECT CreateScript FROM ##SrvPrincipals WHERE CreateScript IS NOT NULL
-		UNION ALL
-		SELECT AddScript FROM ##SrvRoles WHERE AddScript IS NOT NULL
-		UNION ALL
-		SELECT GrantScript FROM ##SrvPermissions WHERE GrantScript IS NOT NULL
-	END 
-	ELSE IF @Output = 'DropOnly' 
-	BEGIN
-		SELECT DropScript FROM ##SrvPrincipals WHERE DropScript IS NOT NULL
-		UNION ALL
-		SELECT DropScript FROM ##SrvRoles WHERE DropScript IS NOT NULL
-		UNION ALL
-		SELECT RevokeScript FROM ##SrvPermissions WHERE RevokeScript IS NOT NULL
-	END
-	ELSE IF @Output = 'ScriptOnly' 
-	BEGIN
-		SELECT DropScript, CreateScript FROM ##SrvPrincipals WHERE DropScript IS NOT NULL OR CreateScript IS NOT NULL
-		UNION ALL
-		SELECT DropScript, AddScript FROM ##SrvRoles WHERE DropScript IS NOT NULL OR AddScript IS NOT NULL
-		UNION ALL
-		SELECT RevokeScript, GrantScript FROM ##SrvPermissions WHERE RevokeScript IS NOT NULL OR GrantScript IS NOT NULL
-	END
-	ELSE IF @Output = 'Report'
-	BEGIN
-		SELECT SrvPrincipal, type, type_desc, is_disabled,
-				STUFF((SELECT ', ' + ##SrvRoles.RoleName
-						FROM ##SrvRoles
-						WHERE ##SrvPrincipals.SrvPrincipalId = ##SrvRoles.LoginPrincipalId
-						ORDER BY ##SrvRoles.RoleName
-						FOR XML PATH(''),TYPE).value('.','VARCHAR(MAX)')
-					, 1, 2, '') AS RoleMembership,
-				STUFF((SELECT ', ' + ##SrvPermissions.state_desc + ' ' + ##SrvPermissions.permission_name + ' ' +
-								CASE WHEN class_desc <> 'SERVER' THEN class_desc ELSE '' END
-						FROM (SELECT DISTINCT * FROM ##SrvPermissions) ##SrvPermissions
-						WHERE ##SrvPrincipals.SrvPrincipalId = ##SrvPermissions.GranteePrincipalId
-						ORDER BY ##SrvPermissions.state_desc, ##SrvPermissions.permission_name
-						FOR XML PATH(''),TYPE).value('.','VARCHAR(MAX)')
-					, 1, 2, '') AS DirectPermissions
-		FROM ##SrvPrincipals
-		ORDER BY SrvPrincipal
-	END
-	ELSE -- 'Default' or no match
-	BEGIN
-		SELECT SrvPrincipal, type, type_desc, is_disabled, default_database_name, 
-				default_language_name, [check_policy], [check_expiration], Cert_or_asymmetric_key, 
-				sid, DropScript, CreateScript 
-		FROM ##SrvPrincipals ORDER BY SrvPrincipal
-		IF LEN(@Role) > 0
-			SELECT LoginName, RoleName, DropScript, AddScript FROM ##SrvRoles ORDER BY RoleName, LoginName
-		ELSE
-			SELECT LoginName, RoleName, DropScript, AddScript FROM ##SrvRoles ORDER BY LoginName, RoleName
-		SELECT GranteeName, GrantorName, class_desc, permission_name, state_desc, RevokeScript, GrantScript 
-		FROM ##SrvPermissions ORDER BY GranteeName
-	END
+    IF @Output = 'None'
+        PRINT ''
+    ELSE IF @Output = 'CreateOnly'
+    BEGIN
+        SELECT CreateScript FROM ##SrvPrincipals WHERE CreateScript IS NOT NULL
+        UNION ALL
+        SELECT AddScript FROM ##SrvRoles WHERE AddScript IS NOT NULL
+        UNION ALL
+        SELECT GrantScript FROM ##SrvPermissions WHERE GrantScript IS NOT NULL
+    END 
+    ELSE IF @Output = 'DropOnly' 
+    BEGIN
+        SELECT DropScript FROM ##SrvPrincipals WHERE DropScript IS NOT NULL
+        UNION ALL
+        SELECT DropScript FROM ##SrvRoles WHERE DropScript IS NOT NULL
+        UNION ALL
+        SELECT RevokeScript FROM ##SrvPermissions WHERE RevokeScript IS NOT NULL
+    END
+    ELSE IF @Output = 'ScriptOnly' 
+    BEGIN
+        SELECT DropScript, CreateScript FROM ##SrvPrincipals WHERE DropScript IS NOT NULL OR CreateScript IS NOT NULL
+        UNION ALL
+        SELECT DropScript, AddScript FROM ##SrvRoles WHERE DropScript IS NOT NULL OR AddScript IS NOT NULL
+        UNION ALL
+        SELECT RevokeScript, GrantScript FROM ##SrvPermissions WHERE RevokeScript IS NOT NULL OR GrantScript IS NOT NULL
+    END
+    ELSE IF @Output = 'Report'
+    BEGIN
+        SELECT SrvPrincipal, type, type_desc, is_disabled,
+                STUFF((SELECT ', ' + ##SrvRoles.RoleName
+                        FROM ##SrvRoles
+                        WHERE ##SrvPrincipals.SrvPrincipalId = ##SrvRoles.LoginPrincipalId
+                        ORDER BY ##SrvRoles.RoleName
+                        FOR XML PATH(''),TYPE).value('.','VARCHAR(MAX)')
+                    , 1, 2, '') AS RoleMembership,
+                STUFF((SELECT ', ' + ##SrvPermissions.state_desc + ' ' + ##SrvPermissions.permission_name + ' ' +
+                                CASE WHEN class_desc <> 'SERVER' THEN class_desc ELSE '' END
+                        FROM (SELECT DISTINCT * FROM ##SrvPermissions) ##SrvPermissions
+                        WHERE ##SrvPrincipals.SrvPrincipalId = ##SrvPermissions.GranteePrincipalId
+                        ORDER BY ##SrvPermissions.state_desc, ##SrvPermissions.permission_name
+                        FOR XML PATH(''),TYPE).value('.','VARCHAR(MAX)')
+                    , 1, 2, '') AS DirectPermissions
+        FROM ##SrvPrincipals
+        ORDER BY SrvPrincipal
+    END
+    ELSE -- 'Default' or no match
+    BEGIN
+        SELECT SrvPrincipal, type, type_desc, is_disabled, default_database_name, 
+                default_language_name, [check_policy], [check_expiration], Cert_or_asymmetric_key, 
+                sid, DropScript, CreateScript 
+        FROM ##SrvPrincipals ORDER BY SrvPrincipal
+        IF LEN(@Role) > 0
+            SELECT LoginName, RoleName, DropScript, AddScript FROM ##SrvRoles ORDER BY RoleName, LoginName
+        ELSE
+            SELECT LoginName, RoleName, DropScript, AddScript FROM ##SrvRoles ORDER BY LoginName, RoleName
+        SELECT GranteeName, GrantorName, class_desc, permission_name, state_desc, RevokeScript, GrantScript 
+        FROM ##SrvPermissions ORDER BY GranteeName
+    END
 
-	IF @DropTempTables = 1
-	BEGIN
-		DROP TABLE ##SrvPrincipals
-		DROP TABLE ##SrvRoles
-		DROP TABLE ##SrvPermissions
-	END
+    IF @DropTempTables = 1
+    BEGIN
+        DROP TABLE ##SrvPrincipals
+        DROP TABLE ##SrvRoles
+        DROP TABLE ##SrvPermissions
+    END
 END
 GO
