@@ -1,20 +1,7 @@
 /*********************************************************************************************
 sp_AzSQLDBPermissions V1.0
 Kenneth Fisher
-
-
-**************************************************
-**************************************************
-**************************************************
-Be careful with any code you find on the internet. 
-In particular with this code. I expect it to work  
-ok but it is in beta and will probably be buggy.
-**************************************************
-**************************************************
-**************************************************
-
-
-
+ 
 http://www.sqlstudies.com
  
 This stored procedure returns 3 data sets.  The first dataset is the list of database
@@ -185,7 +172,7 @@ SET @sql =
                           QUOTENAME(DBPrincipals.default_schema_name' + @Collation + N'),'''') 
                ELSE '''' END +
 			   CASE WHEN DBPrincipals.[type] = ''S'' 
-					THEN '', PASSWORD = ''''<Insert Strong Password Here>'''' '' ELSE ''''''''  END + 
+					THEN '', PASSWORD = ''''<Insert Strong Password Here>'''' '' ELSE ''''  END + 
                '';'' 
            AS CreateScript 
     FROM sys.database_principals DBPrincipals 
@@ -281,23 +268,23 @@ END
 --=========================================================================
 -- Database Role Members
 SET @sql =  
-    N'SELECT Users.principal_id AS UserPrincipalId, Users.name AS UserName, Roles.name AS RoleName, ' + NCHAR(13) + 
-    N'   CASE WHEN Users.is_fixed_role = 0 AND Users.name <> ''dbo'' THEN ' + NCHAR(13) + 
-    N'   ''EXEC sp_droprolemember @rolename = ''+QUOTENAME(Roles.name' + @Collation + 
-                N','''''''')+'', @membername = ''+QUOTENAME(CASE WHEN Users.name = ''dbo'' THEN NULL
-                ELSE Users.name END' + @Collation + 
-                N','''''''')+'';'' END AS DropScript, ' + NCHAR(13) + 
-    N'   CASE WHEN Users.is_fixed_role = 0 AND Users.name <> ''dbo'' THEN ' + NCHAR(13) + 
-    N'   ''EXEC sp_addrolemember @rolename = ''+QUOTENAME(Roles.name' + @Collation + 
-                N','''''''')+'', @membername = ''+QUOTENAME(CASE WHEN Users.name = ''dbo'' THEN NULL
-                ELSE Users.name END' + @Collation + 
-                N','''''''')+'';'' END AS AddScript ' + NCHAR(13) + 
-    N'FROM sys.database_role_members RoleMembers ' + NCHAR(13) + 
-    N'JOIN sys.database_principals Users ' + NCHAR(13) + 
-    N'   ON RoleMembers.member_principal_id = Users.principal_id ' + NCHAR(13) + 
-    N'JOIN sys.database_principals Roles ' + NCHAR(13) + 
-    N'   ON RoleMembers.role_principal_id = Roles.principal_id ' + NCHAR(13) + 
-    N'WHERE 1=1 '
+N'SELECT Users.principal_id AS UserPrincipalId, Users.name AS UserName, Roles.name AS RoleName, 
+   CASE WHEN Users.is_fixed_role = 0 AND Users.name <> ''dbo'' THEN 
+   ''EXEC sp_droprolemember @rolename = ''+QUOTENAME(Roles.name' + @Collation + 
+            N','''''''')+'', @membername = ''+QUOTENAME(CASE WHEN Users.name = ''dbo'' THEN NULL
+            ELSE Users.name END' + @Collation + 
+            N','''''''')+'';'' END AS DropScript, 
+   CASE WHEN Users.is_fixed_role = 0 AND Users.name <> ''dbo'' THEN 
+   ''EXEC sp_addrolemember @rolename = ''+QUOTENAME(Roles.name' + @Collation + 
+            N','''''''')+'', @membername = ''+QUOTENAME(CASE WHEN Users.name = ''dbo'' THEN NULL
+            ELSE Users.name END' + @Collation + 
+            N','''''''')+'';'' END AS AddScript 
+FROM sys.database_role_members RoleMembers 
+JOIN sys.database_principals Users 
+   ON RoleMembers.member_principal_id = Users.principal_id 
+JOIN sys.database_principals Roles 
+   ON RoleMembers.role_principal_id = Roles.principal_id 
+WHERE 1=1 '
         
 IF LEN(ISNULL(@Principal,'')) > 0
     IF @Print = 1
@@ -385,157 +372,156 @@ END
 --=========================================================================
 -- Database & object Permissions
 SET @ObjectList =
-    N'; WITH ObjectList AS (' + NCHAR(13) + 
-    N'   SELECT SCHEMA_NAME(sys.all_objects.schema_id) ' + @Collation + N' AS SchemaName,' + NCHAR(13) + 
-    N'       name ' + @Collation + N' AS name, ' + NCHAR(13) + 
-    N'       object_id AS id, ' + NCHAR(13) + 
-    N'       ''OBJECT_OR_COLUMN'' AS class_desc,' + NCHAR(13) + 
-    N'       ''OBJECT'' AS class ' + NCHAR(13) + 
-    N'   FROM sys.all_objects' + NCHAR(13) + 
-    N'   UNION ALL' + NCHAR(13) + 
-    N'   SELECT name ' + @Collation + N' AS SchemaName, ' + NCHAR(13) + 
-    N'       NULL AS name, ' + NCHAR(13) + 
-    N'       schema_id AS id, ' + NCHAR(13) + 
-    N'       ''SCHEMA'' AS class_desc,' + NCHAR(13) + 
-    N'       ''SCHEMA'' AS class ' + NCHAR(13) + 
-    N'   FROM sys.schemas' + NCHAR(13) + 
-    N'   UNION ALL' + NCHAR(13) + 
-    N'   SELECT NULL AS SchemaName, ' + NCHAR(13) + 
-    N'       name ' + @Collation + N' AS name, ' + NCHAR(13) + 
-    N'       principal_id AS id, ' + NCHAR(13) + 
-    N'       ''DATABASE_PRINCIPAL'' AS class_desc,' + NCHAR(13) + 
-    N'       CASE type_desc ' + NCHAR(13) + 
-    N'           WHEN ''APPLICATION_ROLE'' THEN ''APPLICATION ROLE'' ' + NCHAR(13) + 
-    N'           WHEN ''DATABASE_ROLE'' THEN ''ROLE'' ' + NCHAR(13) + 
-    N'           ELSE ''USER'' END AS class ' + NCHAR(13) + 
-    N'   FROM sys.database_principals' + NCHAR(13) + 
-    N'   UNION ALL' + NCHAR(13) + 
-    N'   SELECT NULL AS SchemaName, ' + NCHAR(13) + 
-    N'       name ' + @Collation + N' AS name, ' + NCHAR(13) + 
-    N'       assembly_id AS id, ' + NCHAR(13) + 
-    N'       ''ASSEMBLY'' AS class_desc,' + NCHAR(13) + 
-    N'       ''ASSEMBLY'' AS class ' + NCHAR(13) + 
-    N'   FROM sys.assemblies' + NCHAR(13) + 
-    N'   UNION ALL' + NCHAR(13) 
+N'; WITH ObjectList AS (
+   SELECT SCHEMA_NAME(sys.all_objects.schema_id) ' + @Collation + N' AS SchemaName,
+       name ' + @Collation + N' AS name, 
+       object_id AS id, 
+       ''OBJECT_OR_COLUMN'' AS class_desc,
+       ''OBJECT'' AS class 
+   FROM sys.all_objects
+   UNION ALL
+   SELECT name ' + @Collation + N' AS SchemaName, 
+       NULL AS name, 
+       schema_id AS id, 
+       ''SCHEMA'' AS class_desc,
+       ''SCHEMA'' AS class 
+   FROM sys.schemas
+   UNION ALL
+   SELECT NULL AS SchemaName, 
+       name ' + @Collation + N' AS name, 
+       principal_id AS id, 
+       ''DATABASE_PRINCIPAL'' AS class_desc,
+       CASE type_desc 
+           WHEN ''APPLICATION_ROLE'' THEN ''APPLICATION ROLE'' 
+           WHEN ''DATABASE_ROLE'' THEN ''ROLE'' 
+           ELSE ''USER'' END AS class 
+   FROM sys.database_principals
+   UNION ALL
+   SELECT NULL AS SchemaName, 
+       name ' + @Collation + N' AS name, 
+       assembly_id AS id, 
+       ''ASSEMBLY'' AS class_desc,
+       ''ASSEMBLY'' AS class 
+   FROM sys.assemblies
+   UNION ALL' + NCHAR(13) 
 
 SET @ObjectList = @ObjectList + 
-    N'   SELECT SCHEMA_NAME(sys.types.schema_id) ' + @Collation + N' AS SchemaName, ' + NCHAR(13) + 
-    N'       name ' + @Collation + N' AS name, ' + NCHAR(13) + 
-    N'       user_type_id AS id, ' + NCHAR(13) + 
-    N'       ''TYPE'' AS class_desc,' + NCHAR(13) + 
-    N'       ''TYPE'' AS class ' + NCHAR(13) + 
-    N'   FROM sys.types' + NCHAR(13) + 
-    N'   UNION ALL' + NCHAR(13) + 
-    N'   SELECT SCHEMA_NAME(schema_id) ' + @Collation + N' AS SchemaName, ' + NCHAR(13) + 
-    N'       name ' + @Collation + N' AS name, ' + NCHAR(13) + 
-    N'       xml_collection_id AS id, ' + NCHAR(13) + 
-    N'       ''XML_SCHEMA_COLLECTION'' AS class_desc,' + NCHAR(13) + 
-    N'       ''XML SCHEMA COLLECTION'' AS class ' + NCHAR(13) + 
-    N'   FROM sys.xml_schema_collections' + NCHAR(13) + 
-    N'   UNION ALL' + NCHAR(13) + 
-    N'   SELECT NULL AS SchemaName, ' + NCHAR(13) + 
-    N'       name ' + @Collation + N' AS name, ' + NCHAR(13) + 
-    N'       message_type_id AS id, ' + NCHAR(13) + 
-    N'       ''MESSAGE_TYPE'' AS class_desc,' + NCHAR(13) + 
-    N'       ''MESSAGE TYPE'' AS class ' + NCHAR(13) + 
-    N'   FROM sys.service_message_types' + NCHAR(13) + 
-    N'   UNION ALL' + NCHAR(13) + 
-    N'   SELECT NULL AS SchemaName, ' + NCHAR(13) + 
-    N'       name ' + @Collation + N' AS name, ' + NCHAR(13) + 
-    N'       service_contract_id AS id, ' + NCHAR(13) + 
-    N'       ''SERVICE_CONTRACT'' AS class_desc,' + NCHAR(13) + 
-    N'       ''CONTRACT'' AS class ' + NCHAR(13) + 
-    N'   FROM sys.service_contracts' + NCHAR(13) + 
-    N'   UNION ALL' + NCHAR(13) + 
-    N'   SELECT NULL AS SchemaName, ' + NCHAR(13) + 
-    N'       name ' + @Collation + N' AS name, ' + NCHAR(13) + 
-    N'       service_id AS id, ' + NCHAR(13) + 
-    N'       ''SERVICE'' AS class_desc,' + NCHAR(13) + 
-    N'       ''SERVICE'' AS class ' + NCHAR(13) + 
-    N'   FROM sys.services' + NCHAR(13) + 
-    N'   UNION ALL' + NCHAR(13) + 
-    N'   SELECT NULL AS SchemaName, ' + NCHAR(13) + 
-    N'       name ' + @Collation + N' AS name, ' + NCHAR(13) + 
-    N'       remote_service_binding_id AS id, ' + NCHAR(13) + 
-    N'       ''REMOTE_SERVICE_BINDING'' AS class_desc,' + NCHAR(13) + 
-    N'       ''REMOTE SERVICE BINDING'' AS class ' + NCHAR(13) + 
-    N'   FROM sys.remote_service_bindings' + NCHAR(13) + 
-    N'   UNION ALL' + NCHAR(13) + 
-    N'   SELECT NULL AS SchemaName, ' + NCHAR(13) + 
-    N'       name ' + @Collation + N' AS name, ' + NCHAR(13) + 
-    N'       route_id AS id, ' + NCHAR(13) + 
-    N'       ''ROUTE'' AS class_desc,' + NCHAR(13) + 
-    N'       ''ROUTE'' AS class ' + NCHAR(13) + 
-    N'   FROM sys.routes' + NCHAR(13) + 
-    N'   UNION ALL' + NCHAR(13) + 
-    N'   SELECT NULL AS SchemaName, ' + NCHAR(13) + 
-    N'       name ' + @Collation + N' AS name, ' + NCHAR(13) + 
-    N'       fulltext_catalog_id AS id, ' + NCHAR(13) + 
-    N'       ''FULLTEXT_CATALOG'' AS class_desc,' + NCHAR(13) + 
-    N'       ''FULLTEXT CATALOG'' AS class ' + NCHAR(13) + 
-    N'   FROM sys.fulltext_catalogs' + NCHAR(13) + 
-    N'   UNION ALL' + NCHAR(13) + 
-    N'   SELECT NULL AS SchemaName, ' + NCHAR(13) + 
-    N'       name ' + @Collation + N' AS name, ' + NCHAR(13) + 
-    N'       symmetric_key_id AS id, ' + NCHAR(13) + 
-    N'       ''SYMMETRIC_KEYS'' AS class_desc,' + NCHAR(13) + 
-    N'       ''SYMMETRIC KEY'' AS class ' + NCHAR(13) + 
-    N'   FROM sys.symmetric_keys' + NCHAR(13) + 
-    N'   UNION ALL' + NCHAR(13) + 
-    N'   SELECT NULL AS SchemaName, ' + NCHAR(13) + 
-    N'       name ' + @Collation + N' AS name, ' + NCHAR(13) + 
-    N'       certificate_id AS id, ' + NCHAR(13) + 
-    N'       ''CERTIFICATE'' AS class_desc,' + NCHAR(13) + 
-    N'       ''CERTIFICATE'' AS class ' + NCHAR(13) + 
-    N'   FROM sys.certificates' + NCHAR(13) + 
-    N'   UNION ALL' + NCHAR(13) + 
-    N'   SELECT NULL AS SchemaName, ' + NCHAR(13) + 
-    N'       name ' + @Collation + N' AS name, ' + NCHAR(13) + 
-    N'       asymmetric_key_id AS id, ' + NCHAR(13) + 
-    N'       ''ASYMMETRIC_KEY'' AS class_desc,' + NCHAR(13) + 
-    N'       ''ASYMMETRIC KEY'' AS class ' + NCHAR(13) + 
-    N'   FROM sys.asymmetric_keys' + NCHAR(13) +  
-    N'   ) ' + NCHAR(13)
+N'   SELECT SCHEMA_NAME(sys.types.schema_id) ' + @Collation + N' AS SchemaName, 
+       name ' + @Collation + N' AS name, 
+       user_type_id AS id, 
+       ''TYPE'' AS class_desc,
+       ''TYPE'' AS class 
+   FROM sys.types
+   UNION ALL
+   SELECT SCHEMA_NAME(schema_id) ' + @Collation + N' AS SchemaName, 
+       name ' + @Collation + N' AS name, 
+       xml_collection_id AS id, 
+       ''XML_SCHEMA_COLLECTION'' AS class_desc,
+       ''XML SCHEMA COLLECTION'' AS class 
+   FROM sys.xml_schema_collections
+   UNION ALL
+   SELECT NULL AS SchemaName, 
+       name ' + @Collation + N' AS name, 
+       message_type_id AS id, 
+       ''MESSAGE_TYPE'' AS class_desc,
+       ''MESSAGE TYPE'' AS class 
+   FROM sys.service_message_types
+   UNION ALL
+   SELECT NULL AS SchemaName, 
+       name ' + @Collation + N' AS name, 
+       service_contract_id AS id, 
+       ''SERVICE_CONTRACT'' AS class_desc,
+       ''CONTRACT'' AS class 
+   FROM sys.service_contracts
+   UNION ALL
+   SELECT NULL AS SchemaName, 
+       name ' + @Collation + N' AS name, 
+       service_id AS id, 
+       ''SERVICE'' AS class_desc,
+       ''SERVICE'' AS class 
+   FROM sys.services
+   UNION ALL
+   SELECT NULL AS SchemaName, 
+       name ' + @Collation + N' AS name, 
+       remote_service_binding_id AS id, 
+       ''REMOTE_SERVICE_BINDING'' AS class_desc,
+       ''REMOTE SERVICE BINDING'' AS class 
+   FROM sys.remote_service_bindings
+   UNION ALL
+   SELECT NULL AS SchemaName, 
+       name ' + @Collation + N' AS name, 
+       route_id AS id, 
+       ''ROUTE'' AS class_desc,
+       ''ROUTE'' AS class 
+   FROM sys.routes
+   UNION ALL
+   SELECT NULL AS SchemaName, 
+       name ' + @Collation + N' AS name, 
+       fulltext_catalog_id AS id, 
+       ''FULLTEXT_CATALOG'' AS class_desc,
+       ''FULLTEXT CATALOG'' AS class 
+   FROM sys.fulltext_catalogs
+   UNION ALL
+   SELECT NULL AS SchemaName, 
+       name ' + @Collation + N' AS name, 
+       symmetric_key_id AS id, 
+       ''SYMMETRIC_KEYS'' AS class_desc,
+       ''SYMMETRIC KEY'' AS class 
+   FROM sys.symmetric_keys
+   UNION ALL
+   SELECT NULL AS SchemaName, 
+       name ' + @Collation + N' AS name, 
+       certificate_id AS id, 
+       ''CERTIFICATE'' AS class_desc,
+       ''CERTIFICATE'' AS class 
+   FROM sys.certificates
+   UNION ALL
+   SELECT NULL AS SchemaName, 
+       name ' + @Collation + N' AS name, 
+       asymmetric_key_id AS id, 
+       ''ASYMMETRIC_KEY'' AS class_desc,
+       ''ASYMMETRIC KEY'' AS class 
+   FROM sys.asymmetric_keys 
+   ) ' + NCHAR(13)
   
     SET @sql =
-    N'SELECT Grantee.principal_id AS GranteePrincipalId, Grantee.name AS GranteeName, Grantor.name AS GrantorName, ' + NCHAR(13) + 
-    N'   Permission.class_desc, Permission.permission_name, ' + NCHAR(13) + 
-    N'   ObjectList.name AS ObjectName, ' + NCHAR(13) + 
-    N'   ObjectList.SchemaName, ' + NCHAR(13) + 
-    N'   Permission.state_desc,  ' + NCHAR(13) + 
-    N'   CASE WHEN Grantee.is_fixed_role = 0 AND Grantee.name <> ''dbo'' THEN ' + NCHAR(13) + 
-    N'   ''REVOKE '' + ' + NCHAR(13) + 
-    N'   CASE WHEN Permission.[state]  = ''W'' THEN ''GRANT OPTION FOR '' ELSE '''' END + ' + NCHAR(13) + 
-    N'   '' '' + Permission.permission_name' + @Collation + N' +  ' + NCHAR(13) + 
-    N'       CASE WHEN Permission.major_id <> 0 THEN '' ON '' + ' + NCHAR(13) + 
-    N'           ObjectList.class + ''::'' +  ' + NCHAR(13) + 
-    N'           ISNULL(QUOTENAME(ObjectList.SchemaName),'''') + ' + NCHAR(13) + 
-    N'           CASE WHEN ObjectList.SchemaName + ObjectList.name IS NULL THEN '''' ELSE ''.'' END + ' + NCHAR(13) + 
-    N'           ISNULL(QUOTENAME(ObjectList.name),'''') ' + NCHAR(13) + 
-    N'           ' + @Collation + ' + '' '' ELSE '''' END + ' + NCHAR(13) + 
-    N'       '' FROM '' + QUOTENAME(Grantee.name' + @Collation + N')  + ''; '' END AS RevokeScript, ' + NCHAR(13) + 
-    N'   CASE WHEN Grantee.is_fixed_role = 0 AND Grantee.name <> ''dbo'' THEN ' + NCHAR(13) + 
-    N'   CASE WHEN Permission.[state]  = ''W'' THEN ''GRANT'' ELSE Permission.state_desc' + @Collation + 
-            N' END + ' + NCHAR(13) + 
-    N'       '' '' + Permission.permission_name' + @Collation + N' + ' + NCHAR(13) + 
-    N'       CASE WHEN Permission.major_id <> 0 THEN '' ON '' + ' + NCHAR(13) + 
-    N'           ObjectList.class + ''::'' +  ' + NCHAR(13) + 
-    N'           ISNULL(QUOTENAME(ObjectList.SchemaName),'''') + ' + NCHAR(13) + 
-    N'           CASE WHEN ObjectList.SchemaName + ObjectList.name IS NULL THEN '''' ELSE ''.'' END + ' + NCHAR(13) + 
-    N'           ISNULL(QUOTENAME(ObjectList.name),'''') ' + NCHAR(13) + 
-    N'           ' + @Collation + N' + '' '' ELSE '''' END + ' + NCHAR(13) + 
-    N'       '' TO '' + QUOTENAME(Grantee.name' + @Collation + N')  + '' '' +  ' + NCHAR(13) + 
-    N'       CASE WHEN Permission.[state]  = ''W'' THEN '' WITH GRANT OPTION '' ELSE '''' END +  ' + NCHAR(13) + 
-    N'       '' AS ''+ QUOTENAME(Grantor.name' + @Collation + N')+'';'' END AS GrantScript ' + NCHAR(13) + 
-    N'FROM sys.database_permissions Permission ' + NCHAR(13) + 
-    N'JOIN sys.database_principals Grantee ' + NCHAR(13) + 
-    N'   ON Permission.grantee_principal_id = Grantee.principal_id ' + NCHAR(13) + 
-    N'JOIN sys.database_principals Grantor ' + NCHAR(13) + 
-    N'   ON Permission.grantor_principal_id = Grantor.principal_id ' + NCHAR(13) + 
-    N'LEFT OUTER JOIN ObjectList ' + NCHAR(13) + 
-    N'   ON Permission.major_id = ObjectList.id ' + NCHAR(13) + 
-    N'   AND Permission.class_desc = ObjectList.class_desc ' + NCHAR(13) + 
-    N'WHERE 1=1 '
+    N'SELECT Grantee.principal_id AS GranteePrincipalId, Grantee.name AS GranteeName, Grantor.name AS GrantorName, 
+   Permission.class_desc, Permission.permission_name, 
+   ObjectList.name AS ObjectName, 
+   ObjectList.SchemaName, 
+   Permission.state_desc,  
+   CASE WHEN Grantee.is_fixed_role = 0 AND Grantee.name <> ''dbo'' THEN 
+   ''REVOKE '' + 
+   CASE WHEN Permission.[state]  = ''W'' THEN ''GRANT OPTION FOR '' ELSE '''' END + 
+   '' '' + Permission.permission_name' + @Collation + N' +  
+       CASE WHEN Permission.major_id <> 0 THEN '' ON '' + 
+           ObjectList.class + ''::'' +  
+           ISNULL(QUOTENAME(ObjectList.SchemaName),'''') + 
+           CASE WHEN ObjectList.SchemaName + ObjectList.name IS NULL THEN '''' ELSE ''.'' END + 
+           ISNULL(QUOTENAME(ObjectList.name),'''') 
+           ' + @Collation + ' + '' '' ELSE '''' END + 
+       '' FROM '' + QUOTENAME(Grantee.name' + @Collation + N')  + ''; '' END AS RevokeScript, 
+   CASE WHEN Grantee.is_fixed_role = 0 AND Grantee.name <> ''dbo'' THEN 
+   CASE WHEN Permission.[state]  = ''W'' THEN ''GRANT'' ELSE Permission.state_desc' + @Collation + N' END +  
+       '' '' + Permission.permission_name' + @Collation + N' + 
+       CASE WHEN Permission.major_id <> 0 THEN '' ON '' + 
+           ObjectList.class + ''::'' +  
+           ISNULL(QUOTENAME(ObjectList.SchemaName),'''') + 
+           CASE WHEN ObjectList.SchemaName + ObjectList.name IS NULL THEN '''' ELSE ''.'' END + 
+           ISNULL(QUOTENAME(ObjectList.name),'''') 
+           ' + @Collation + N' + '' '' ELSE '''' END + 
+       '' TO '' + QUOTENAME(Grantee.name' + @Collation + N')  + '' '' +  
+       CASE WHEN Permission.[state]  = ''W'' THEN '' WITH GRANT OPTION '' ELSE '''' END +  
+       '' AS ''+ QUOTENAME(Grantor.name' + @Collation + N')+'';'' END AS GrantScript 
+FROM sys.database_permissions Permission 
+JOIN sys.database_principals Grantee 
+   ON Permission.grantee_principal_id = Grantee.principal_id 
+JOIN sys.database_principals Grantor 
+   ON Permission.grantor_principal_id = Grantor.principal_id 
+LEFT OUTER JOIN ObjectList 
+   ON Permission.major_id = ObjectList.id 
+   AND Permission.class_desc = ObjectList.class_desc 
+WHERE 1=1 '
     
 IF LEN(ISNULL(@Principal,@Role)) > 0
     IF @Print = 1
@@ -639,7 +625,8 @@ BEGIN
 					, 1, 2, '') AS RoleMembership,
 				STUFF((SELECT ', ' + ##DBPermissions.state_desc + ' ' + ##DBPermissions.permission_name + ' on ' + 
 						COALESCE('OBJECT:'+##DBPermissions.SchemaName + '.' + ##DBPermissions.ObjectName, 
-								'SCHEMA:'+##DBPermissions.SchemaName)
+								'SCHEMA:'+##DBPermissions.SchemaName,
+								'DATABASE:'+db_name())
 						FROM ##DBPermissions
 						WHERE ##DBPrincipals.DBPrincipalId = ##DBPermissions.GranteePrincipalId
 						ORDER BY ##DBPermissions.state_desc, ##DBPermissions.ObjectName, ##DBPermissions.permission_name
