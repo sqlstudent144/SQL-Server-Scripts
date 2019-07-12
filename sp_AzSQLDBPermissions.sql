@@ -93,6 +93,7 @@ Data is ordered as follows
     
 -- V1.0
 -- 5/14/2019 – Copy sp_DBPermissions to sp_AzSQLDBPermissions
+-- 7/12/2019 - Add a GUID to the default password on the create script for SQL Ids because I don't trust you (or myself).
 *********************************************************************************************/
     
 CREATE OR ALTER PROCEDURE dbo.sp_AzSQLDBPermissions
@@ -172,7 +173,7 @@ SET @sql =
                           QUOTENAME(DBPrincipals.default_schema_name' + @Collation + N'),'''') 
                ELSE '''' END +
 			   CASE WHEN DBPrincipals.[type] = ''S'' 
-					THEN '', PASSWORD = ''''<Insert Strong Password Here>'''' '' ELSE ''''  END + 
+					THEN '', PASSWORD = ''''<Insert Strong Password Here '+ CAST(NEWID() AS nvarchar(36))+'>'''' '' ELSE ''''  END + 
                '';'' 
            AS CreateScript 
     FROM sys.database_principals DBPrincipals 
