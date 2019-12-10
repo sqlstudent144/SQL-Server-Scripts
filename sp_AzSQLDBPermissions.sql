@@ -198,12 +198,12 @@ IF LEN(@Type) > 0
 IF LEN(@ObjectName) > 0
     BEGIN
         SET @sql = @sql + NCHAR(13) + 
-        N'   AND EXISTS (SELECT 1 ' + NCHAR(13) + 
-        N'               FROM sys.all_objects [Objects] ' + NCHAR(13) + 
-        N'               INNER JOIN sys.database_permissions Permission ' + NCHAR(13) +  
-        N'                   ON Permission.major_id = [Objects].object_id ' + NCHAR(13) + 
-        N'               WHERE Permission.major_id = [Objects].object_id ' + NCHAR(13) + 
-        N'                 AND Permission.grantee_principal_id = DBPrincipals.principal_id ' + NCHAR(13)
+        N'   AND EXISTS (SELECT 1 
+                FROM sys.all_objects [Objects] 
+                INNER JOIN sys.database_permissions Permission   
+                    ON Permission.major_id = [Objects].object_id  
+                WHERE Permission.major_id = [Objects].object_id 
+                    AND Permission.grantee_principal_id = DBPrincipals.principal_id ' + NCHAR(13)
           
         IF @Print = 1
             SET @sql = @sql + N'                 AND [Objects].name ' + @LikeOperator + N' ' + QUOTENAME(@ObjectName,'''') 
@@ -216,9 +216,9 @@ IF LEN(@ObjectName) > 0
 IF LEN(@Permission) > 0
     BEGIN
         SET @sql = @sql + NCHAR(13) + 
-        N'   AND EXISTS (SELECT 1 ' + NCHAR(13) + 
-        N'               FROM sys.database_permissions Permission ' + NCHAR(13) +  
-        N'               WHERE Permission.grantee_principal_id = DBPrincipals.principal_id ' + NCHAR(13)
+        N'   AND EXISTS (SELECT 1  
+                FROM sys.database_permissions Permission   
+                WHERE Permission.grantee_principal_id = DBPrincipals.principal_id ' + NCHAR(13)
           
         IF @Print = 1
             SET @sql = @sql + N'                 AND Permission.permission_name ' + @LikeOperator + N' ' + QUOTENAME(@Permission,'''') 
@@ -308,12 +308,12 @@ IF LEN(@Type) > 0
 IF LEN(@ObjectName) > 0
     BEGIN
         SET @sql = @sql + NCHAR(13) + 
-        N'   AND EXISTS (SELECT 1 ' + NCHAR(13) + 
-        N'               FROM sys.all_objects [Objects] ' + NCHAR(13) + 
-        N'               INNER JOIN sys.database_permissions Permission ' + NCHAR(13) +  
-        N'                   ON Permission.major_id = [Objects].object_id ' + NCHAR(13) + 
-        N'               WHERE Permission.major_id = [Objects].object_id ' + NCHAR(13) + 
-        N'                 AND Permission.grantee_principal_id = Users.principal_id ' + NCHAR(13)
+        N'   AND EXISTS (SELECT 1  
+				FROM sys.all_objects [Objects]  
+				INNER JOIN sys.database_permissions Permission   
+					ON Permission.major_id = [Objects].object_id 
+				WHERE Permission.major_id = [Objects].object_id 
+					AND Permission.grantee_principal_id = Users.principal_id ' + NCHAR(13)
           
         IF @Print = 1
             SET @sql = @sql + N'                 AND [Objects].name ' + @LikeOperator + N' ' + QUOTENAME(@ObjectName,'''') 
@@ -326,9 +326,9 @@ IF LEN(@ObjectName) > 0
 IF LEN(@Permission) > 0
     BEGIN
         SET @sql = @sql + NCHAR(13) + 
-        N'   AND EXISTS (SELECT 1 ' + NCHAR(13) + 
-        N'               FROM sys.database_permissions Permission ' + NCHAR(13) +  
-        N'               WHERE Permission.grantee_principal_id = Users.principal_id ' + NCHAR(13)
+        N'   AND EXISTS (SELECT 1  
+				FROM sys.database_permissions Permission   
+				WHERE Permission.grantee_principal_id = Users.principal_id ' + NCHAR(13)
           
         IF @Print = 1
             SET @sql = @sql + N'                 AND Permission.permission_name ' + @LikeOperator + N' ' + QUOTENAME(@Permission,'''') 
