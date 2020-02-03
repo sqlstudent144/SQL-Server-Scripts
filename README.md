@@ -2,8 +2,11 @@
 **Standard disclaimer: You use scripts off of the web at your own risk.
 I fully expect this script to work without issue but I've been known to be wrong before.**
 
+*Not all of the code here is mine. These are the scripts I use on a regular basis and where I've gotten a script from someone else, if possible, I've included the link at the top of the script. If I didn't write it but can't find/remember where I got it from I'll put a note to that effect.*
+
 Instruction Video: https://www.youtube.com/watch?v=dQw4w9WgXcQ
 
+## Detail on the permissions scripts and how they work. (I did write these.)
 
 ## sp_SrvPermissions
 This stored procedure returns 3 data sets.  The first dataset is the list of server
