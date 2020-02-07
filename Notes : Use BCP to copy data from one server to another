@@ -1,0 +1,19 @@
+-----------------------------------------------------------------
+--- Obviously this isn't SQL code.  These are the BCP comamnds
+--- needed to copy a table from one instance to another.
+--- Run them in a cmdshell with an account that has access to 
+--- both instances.
+-----------------------------------------------------------------
+
+-- Create the output file
+bcp "dbo.SourceTableName" out "C:\temp\DataFile.out" -S "SourceServer\SourceInstance" -d SourceDB -n -T
+
+-- Create the format file.
+bcp DBName.dbo.SourceTableName format nul -f c:\temp\FormatFile.fmt -T -n  -S "SourceServer\SourceInstance"
+
+-----------------------------------------------------------------
+--- If needed script out the table and create in the new location
+-----------------------------------------------------------------
+
+-- Import the data.  The new table has to already exist.
+bcp DBName.dbo.DestTableName IN "C:\temp\DataFile.out" -S "DestServer\DestInstance" -T -f c:\temp\FormatFile.fmt
