@@ -16,4 +16,5 @@ bcp DBName.dbo.SourceTableName format nul -f c:\temp\FormatFile.fmt -T -n  -S "S
 -----------------------------------------------------------------
 
 -- Import the data.  The new table has to already exist.
+-- Add -E to include the identiy values
 bcp DBName.dbo.DestTableName IN "C:\temp\DataFile.out" -S "DestServer\DestInstance" -T -f c:\temp\FormatFile.fmt
