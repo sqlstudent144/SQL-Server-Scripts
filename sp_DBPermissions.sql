@@ -686,7 +686,7 @@ SET @ObjectList2 =  N'
     N'SELECT ' + CASE WHEN @DBName = 'All' THEN N'@AllDBNames' ELSE N'''' + @DBName + N'''' END + N' AS DBName,' + NCHAR(13) + 
     N'   Grantee.principal_id AS GranteePrincipalId, Grantee.name AS GranteeName, Grantor.name AS GrantorName, ' + NCHAR(13) + 
     N'   Permission.class_desc, Permission.permission_name, ' + NCHAR(13) + 
-    N'   ObjectList.name AS ObjectName, ' + NCHAR(13) + 
+    N'   ObjectList.name + CASE WHEN Columns.name IS NOT NULL THEN '' ('' + Columns.name + '')'' ELSE '''' END AS ObjectName, ' + NCHAR(13) + 
     N'   ObjectList.SchemaName, ' + NCHAR(13) + 
     N'   Permission.state_desc,  ' + NCHAR(13) + 
     N'   CASE WHEN Grantee.is_fixed_role = 0 AND Grantee.name <> ''dbo'' THEN ' + NCHAR(13) + 
@@ -698,7 +698,7 @@ SET @ObjectList2 =  N'
     N'           ObjectList.class + ''::'' +  ' + NCHAR(13) + 
     N'           ISNULL(QUOTENAME(ObjectList.SchemaName),'''') + ' + NCHAR(13) + 
     N'           CASE WHEN ObjectList.SchemaName + ObjectList.name IS NULL THEN '''' ELSE ''.'' END + ' + NCHAR(13) + 
-    N'           ISNULL(QUOTENAME(ObjectList.name),'''') ' + NCHAR(13) + 
+    N'           ISNULL(QUOTENAME(ObjectList.name),'''') + ISNULL('' (''+ QUOTENAME(Columns.name) + '')'','''') ' + NCHAR(13) + 
     N'           ' + @Collation + ' + '' '' ELSE '''' END + ' + NCHAR(13) + 
     N'       '' FROM '' + QUOTENAME(Grantee.name' + @Collation + N')  + ''; '' END AS RevokeScript, ' + NCHAR(13) + 
     N'   CASE WHEN Grantee.is_fixed_role = 0 AND Grantee.name <> ''dbo'' THEN ' + NCHAR(13) + 
@@ -710,7 +710,7 @@ SET @ObjectList2 =  N'
     N'           ObjectList.class + ''::'' +  ' + NCHAR(13) + 
     N'           ISNULL(QUOTENAME(ObjectList.SchemaName),'''') + ' + NCHAR(13) + 
     N'           CASE WHEN ObjectList.SchemaName + ObjectList.name IS NULL THEN '''' ELSE ''.'' END + ' + NCHAR(13) + 
-    N'           ISNULL(QUOTENAME(ObjectList.name),'''') ' + NCHAR(13) + 
+    N'           ISNULL(QUOTENAME(ObjectList.name),'''') + ISNULL('' (''+ QUOTENAME(Columns.name) + '')'','''') ' + NCHAR(13) + 
     N'           ' + @Collation + N' + '' '' ELSE '''' END + ' + NCHAR(13) + 
     N'       '' TO '' + QUOTENAME(Grantee.name' + @Collation + N')  + '' '' +  ' + NCHAR(13) + 
     N'       CASE WHEN Permission.[state]  = ''W'' THEN '' WITH GRANT OPTION '' ELSE '''' END +  ' + NCHAR(13) + 
@@ -723,6 +723,9 @@ SET @ObjectList2 =  N'
     N'LEFT OUTER JOIN ObjectList ' + NCHAR(13) + 
     N'   ON Permission.major_id = ObjectList.id ' + NCHAR(13) + 
     N'   AND Permission.class_desc = ObjectList.class_desc ' + NCHAR(13) + 
+    N'LEFT OUTER JOIN sys.columns AS Columns ' + NCHAR(13) + 
+    N'   ON Permission.major_id = Columns.object_id ' + NCHAR(13) + 
+    N'   AND Permission.minor_id = Columns.column_id ' + NCHAR(13) + 
     N'WHERE 1=1 '
     
 IF LEN(ISNULL(@Principal,@Role)) > 0
