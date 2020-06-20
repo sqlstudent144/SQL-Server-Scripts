@@ -6,13 +6,13 @@ REM https://sqlstudies.com/2015/05/20/adding-new-users-groups-in-windows/
 
 NET LOCALGROUP "SevenDwarfs" /ADD
 
-NET USER "Grumpy" "slkjISJW*#&51slkd2DKS84" /ADD
-NET USER "Happy" "slkjISJW*#&51slkd2DKS84" /ADD
-NET USER "Sleepy" "slkjISJW*#&51slkd2DKS84" /ADD
-NET USER "Bashful" "slkjISJW*#&51slkd2DKS84" /ADD
-NET USER "Sneezy" "slkjISJW*#&51slkd2DKS84" /ADD
-NET USER "Dopey" "slkjISJW*#&51slkd2DKS84" /ADD
-NET USER "Doc" "slkjISJW*#&51slkd2DKS84" /ADD
+NET USER "Grumpy"	"slkjISJW*#&51s" /ADD
+NET USER "Happy"	"slkjISJW*#&51s" /ADD
+NET USER "Sleepy"	"slkjISJW*#&51s" /ADD
+NET USER "Bashful"	"slkjISJW*#&51s" /ADD
+NET USER "Sneezy"	"slkjISJW*#&51s" /ADD
+NET USER "Dopey"	"slkjISJW*#&51s" /ADD
+NET USER "Doc"		"slkjISJW*#&51s" /ADD
 NET LOCALGROUP "SevenDwarfs" "Grumpy" /ADD
 NET LOCALGROUP "SevenDwarfs" "Happy" /ADD
 NET LOCALGROUP "SevenDwarfs" "Sleepy" /ADD
@@ -24,18 +24,18 @@ NET LOCALGROUP "SevenDwarfs" "Doc" /ADD
 
 NET LOCALGROUP "Planets" /ADD
 
-NET USER "Mercury"	 "slkjISJW*#&51slkd2DKS84" /ADD
-NET USER "Venus"	 "slkjISJW*#&51slkd2DKS84" /ADD
-NET USER "Earth"	 "slkjISJW*#&51slkd2DKS84" /ADD
-NET USER "Mars"		 "slkjISJW*#&51slkd2DKS84" /ADD
-NET USER "Ceres"	 "slkjISJW*#&51slkd2DKS84" /ADD
-NET USER "Jupiter"	 "slkjISJW*#&51slkd2DKS84" /ADD
-NET USER "Saturn"	 "slkjISJW*#&51slkd2DKS84" /ADD
-NET USER "Uranus"	 "slkjISJW*#&51slkd2DKS84" /ADD
-NET USER "Neptune"	 "slkjISJW*#&51slkd2DKS84" /ADD
-NET USER "Pluto"	 "slkjISJW*#&51slkd2DKS84" /ADD
-NET USER "Charon"	 "slkjISJW*#&51slkd2DKS84" /ADD
-NET USER "2003 UB313"	 "slkjISJW*#&51slkd2DKS84" /ADD
+NET USER "Mercury"	 "slkjISJW*#&51s" /ADD
+NET USER "Venus"	 "slkjISJW*#&51s" /ADD
+NET USER "Earth"	 "slkjISJW*#&51s" /ADD
+NET USER "Mars"		 "slkjISJW*#&51s" /ADD
+NET USER "Ceres"	 "slkjISJW*#&51s" /ADD
+NET USER "Jupiter"	 "slkjISJW*#&51s" /ADD
+NET USER "Saturn"	 "slkjISJW*#&51s" /ADD
+NET USER "Uranus"	 "slkjISJW*#&51s" /ADD
+NET USER "Neptune"	 "slkjISJW*#&51s" /ADD
+NET USER "Pluto"	 "slkjISJW*#&51s" /ADD
+NET USER "Charon"	 "slkjISJW*#&51s" /ADD
+NET USER "2003 UB313" "slkjISJW*#&51s" /ADD
 NET LOCALGROUP "Mercury"	 "Planets" /ADD
 NET LOCALGROUP "Venus"		 "Planets" /ADD
 NET LOCALGROUP "Earth"		 "Planets" /ADD
