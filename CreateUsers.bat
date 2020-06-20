@@ -36,15 +36,15 @@ NET USER "Neptune"	 "slkjISJW*#&51s" /ADD
 NET USER "Pluto"	 "slkjISJW*#&51s" /ADD
 NET USER "Charon"	 "slkjISJW*#&51s" /ADD
 NET USER "2003 UB313" "slkjISJW*#&51s" /ADD
-NET LOCALGROUP "Mercury"	 "Planets" /ADD
-NET LOCALGROUP "Venus"		 "Planets" /ADD
-NET LOCALGROUP "Earth"		 "Planets" /ADD
-NET LOCALGROUP "Mars"		 "Planets" /ADD
-NET LOCALGROUP "Ceres"		 "Planets" /ADD
-NET LOCALGROUP "Jupiter"	 "Planets" /ADD
-NET LOCALGROUP "Saturn"		 "Planets" /ADD
-NET LOCALGROUP "Uranus"		 "Planets" /ADD
-NET LOCALGROUP "Neptune"	 "Planets" /ADD
-NET LOCALGROUP "Pluto"		 "Planets" /ADD
-NET LOCALGROUP "Charon"		 "Planets" /ADD
-NET LOCALGROUP "2003 UB313"	 "Planets" /ADD
+NET LOCALGROUP "Planets" "Mercury"	/ADD
+NET LOCALGROUP "Planets" "Venus"	/ADD
+NET LOCALGROUP "Planets" "Earth"	/ADD
+NET LOCALGROUP "Planets" "Mars"		/ADD
+NET LOCALGROUP "Planets" "Ceres"	/ADD
+NET LOCALGROUP "Planets" "Jupiter"	/ADD
+NET LOCALGROUP "Planets" "Saturn"	/ADD
+NET LOCALGROUP "Planets" "Uranus"	/ADD
+NET LOCALGROUP "Planets" "Neptune"	/ADD
+NET LOCALGROUP "Planets" "Pluto"	/ADD
+NET LOCALGROUP "Planets" "Charon"	/ADD
+NET LOCALGROUP "Planets" "2003 UB313"	/ADD
