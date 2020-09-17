@@ -1,5 +1,5 @@
 /*********************************************************************************************
-sp_AzSQLDBPermissions V1.0
+sp_AzSYNDBPermissions V1.0
 Kenneth Fisher
  
 http://www.sqlstudies.com
