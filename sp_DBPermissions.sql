@@ -208,7 +208,9 @@ EXAMPLE USAGE
                 @Debug                              = 2
     ;
 
-    SELECT * FROM SecurityInventory.DatabasePrincipals
+    SELECT * FROM SecurityInventory.DatabasePrincipals;
+    SELECT * FROM SecurityInventory.DatabaseRoleMemberships;
+    SELECT * FROM SecurityInventory.DatabasePermissions;
 *********************************************************************************************/
     
 ALTER PROCEDURE dbo.sp_DBPermissions 
@@ -390,23 +392,23 @@ BEGIN
                 BEGIN
                     RAISERROR('Unable to create table %s',12,1,@OutputTable4Permissions);
                     RETURN;
-                END;
-                
-                SET @tsql_Insert_Permissions =  'INSERT INTO ' + @OutputTable4Permissions + '(' + @LineFeed + 
-                                                '    ServerName, CheckDate, ReportId,' + @LineFeed +
-                                                '    DatabaseName, GranteePrincipalId, GranteeName, GrantorName,' + @LineFeed +
-                                                '    PermissionClass, PermissionName, ObjectName,SchemaName,PermissionLevel,' + @LineFeed +
-                                                '    UndoScript , RedoScript' + @LineFeed +
-                                                ')' + @LineFeed +
-                                                'SELECT' + @LineFeed +
-                                                '    CONVERT(VARCHAR(1200),SERVERPROPERTY(''ServerName'')),' + @LineFeed +
-                                                '    SYSDATETIME(),' + @LineFeed +
-                                                '    NULL,' + @LineFeed
-                                                -- specific columns added at temporary table creation
-                                                ;
-                                                
+                END;                            
             END;
-            
+            SET @tsql_Insert_Permissions =  'INSERT INTO ' + @OutputTable4Permissions + '(' + @LineFeed + 
+                                            '    ServerName, CheckDate, ReportId,' + @LineFeed +
+                                            '    DatabaseName, GranteePrincipalId, GranteeName, GrantorName,' + @LineFeed +
+                                            '    PermissionClass, PermissionName, ObjectName,SchemaName,PermissionLevel,' + @LineFeed +
+                                            '    UndoScript , RedoScript' + @LineFeed +
+                                            ')' + @LineFeed +
+                                            'SELECT' + @LineFeed +
+                                            '    CONVERT(VARCHAR(1200),SERVERPROPERTY(''ServerName'')),' + @LineFeed +
+                                            '    SYSDATETIME(),' + @LineFeed +
+                                            '    NULL,' + @LineFeed
+                                            -- specific columns added at temporary table creation
+                                            ;
+        END;
+        IF(@OutputTable4Principals IS NOT NULL)  
+        BEGIN
             IF(OBJECT_ID(@OutputTable4Principals) IS NULL)
             BEGIN
                 IF(@Debug > 0)
@@ -448,23 +450,24 @@ BEGIN
                     RAISERROR('Unable to create table %s',12,1,@OutputTable4Principals);
                     RETURN;
                 END;
-                
-                SET @tsql_Insert_Principals =   'INSERT INTO ' + @OutputTable4Principals + '(' + @LineFeed + 
-                                                '    ServerName, CheckDate, ReportId,' + @LineFeed +
-                                                '    DatabaseName, DatabasePrincipalId, DatabasePrincipalName, ServerPrincipalName,' + @LineFeed +
-                                                '    PrincipalType, PrincipalTypeDesc, DefaultSchemaName,' + @LineFeed +
-                                                '    PrincipalCreationDateStamp,PrincipalLastModifDatestamp,' + @LineFeed +
-                                                '    PrincipalIsFixedRole, RoleAuthorization,PrincipalSID,' + @LineFeed +
-                                                '    UndoScript , RedoScript' + @LineFeed +
-                                                ')' + @LineFeed +
-                                                'SELECT' + @LineFeed +
-                                                '    CONVERT(VARCHAR(1200),SERVERPROPERTY(''ServerName'')),' + @LineFeed +
-                                                '    SYSDATETIME(),' + @LineFeed +
-                                                '    NULL,' + @LineFeed
-                                                -- specific columns added at temporary table creation
-                                                ;
+            END;
+            SET @tsql_Insert_Principals =   'INSERT INTO ' + @OutputTable4Principals + '(' + @LineFeed + 
+                                            '    ServerName, CheckDate, ReportId,' + @LineFeed +
+                                            '    DatabaseName, DatabasePrincipalId, DatabasePrincipalName, ServerPrincipalName,' + @LineFeed +
+                                            '    PrincipalType, PrincipalTypeDesc, DefaultSchemaName,' + @LineFeed +
+                                            '    PrincipalCreationDateStamp,PrincipalLastModifDatestamp,' + @LineFeed +
+                                            '    PrincipalIsFixedRole, RoleAuthorization,PrincipalSID,' + @LineFeed +
+                                            '    UndoScript , RedoScript' + @LineFeed +
+                                            ')' + @LineFeed +
+                                            'SELECT' + @LineFeed +
+                                            '    CONVERT(VARCHAR(1200),SERVERPROPERTY(''ServerName'')),' + @LineFeed +
+                                            '    SYSDATETIME(),' + @LineFeed +
+                                            '    NULL,' + @LineFeed
+                                            -- specific columns added at temporary table creation
+                                            ;
         END;
-            
+        IF(@OutputTable4RoleMemberships IS NOT NULL)
+        BEGIN
             IF(OBJECT_ID(@OutputTable4RoleMemberships) IS NULL)
             BEGIN
                 IF(@Debug > 0)
@@ -498,8 +501,8 @@ BEGIN
                     RAISERROR('Unable to create table %s',12,1,@OutputTable4RoleMemberships);
                     RETURN;
                 END;
-                
-                SET @tsql_Insert_RoleMemberships =  'INSERT INTO ' + @OutputTable4RoleMemberships + '(' + @LineFeed + 
+            END;
+            SET @tsql_Insert_RoleMemberships =  'INSERT INTO ' + @OutputTable4RoleMemberships + '(' + @LineFeed + 
                                                     '    ServerName, CheckDate, ReportId,' + @LineFeed +
                                                     '    DatabaseName, MemberPrincipalId, MemberName, RoleName,' + @LineFeed +
                                                     '    UndoScript , RedoScript' + @LineFeed +
@@ -510,9 +513,8 @@ BEGIN
                                                     '    NULL,' + @LineFeed
                                                     -- specific columns added at temporary table creation
                                                     ;
-            END;
         END;
-    END;       
+    END;
 END;
 ELSE
 BEGIN
