@@ -75,7 +75,7 @@ Parameters:
         to 0 the fixed server roles and SA and Public principals will be excluded.
     @DropTempTables
         When this is set to 1 (the default) the temp tables used are dropped.  If it's 0
-        then the tempt ables are kept for references after the code has finished.
+        then the temp tables are kept for references after the code has finished.
         The temp tables are:
             ##DBPrincipals
             ##DBRoles 
@@ -95,6 +95,30 @@ Parameters:
     @Print
         Defaults to 0, but if a 1 is passed in then the queries are not run but printed
         out instead.  This is primarily for debugging.
+        
+    @OutputServerName                  
+        Just in case, but not functional yet!
+        
+        The name of a linked server to use in order to store the product of the execution
+        
+    @OutputDatabaseName                 
+        The name of a database to use in order to store the product of the execution 
+        Default: DB_NAME()
+        
+    @OutputSchemaName
+        The name of a schema to use in order to store the product of the execution 
+        
+    @OutputTableName4Principals
+        The name of the table to use in order to store discovered principals
+        
+    @OutputTableName4RoleMemberships
+        The name of the table to use in order to store discovered database role memberships
+        
+    @OutputTableName4Permissions
+        The name of the table to use in order to store discovered database permissions
+        
+    @Debug
+        Set it to a value above 0 and verbosity of this procedure will raise
     
 Data is ordered as follows
     1st result set: DBPrincipal
@@ -151,6 +175,44 @@ Data is ordered as follows
                 This makes the order more reliable.
 -- 06/04/2019 - Begin cleanup of the dynamic SQL (specifically removing carrage return & extra quotes)
 -- 06/04/2019 - Fix @print where part of the permissions query was being truncated.
+
+
+
+EXAMPLE USAGE
+
+    -- show collection queries 
+    EXEC [dbo].[sp_DBPermissions]  @Print = 1 ;
+
+    -- Run with defaults:
+    
+    EXEC [dbo].[sp_DBPermissions]; 
+
+    -- Run with defaults for ALL databases: (may take some time)
+
+    EXEC [dbo].[sp_DBPermissions] @DBName = 'ALL';
+
+    -- Run with defaults for ALL databases  and store results in collection tables
+    EXEC [dbo].[sp_DBPermissions]   
+                @DBName                             = 'ALL',
+                @OutputSchemaName                   = 'SecurityInventory',
+                @OutputTableName4Principals         = 'DatabasePrincipals',
+                @OutputTableName4RoleMemberships    = 'DatabaseRoleMemberships',
+                @OutputTableName4Permissions        = 'DatabasePermissions'
+    ;
+
+    -- Run for current database, in debug mode 2 (message + queries) and store results into collection tables
+    EXEC [dbo].[sp_DBPermissions]   
+                --@DBName                             = 'ALL',
+                @OutputSchemaName                   = 'SecurityInventory',
+                @OutputTableName4Principals         = 'DatabasePrincipals',
+                @OutputTableName4RoleMemberships    = 'DatabaseRoleMemberships',
+                @OutputTableName4Permissions        = 'DatabasePermissions',
+                @Debug                              = 2
+    ;
+
+    SELECT * FROM SecurityInventory.DatabasePrincipals;
+    SELECT * FROM SecurityInventory.DatabaseRoleMemberships;
+    SELECT * FROM SecurityInventory.DatabasePermissions;
 *********************************************************************************************/
     
 ALTER PROCEDURE dbo.sp_DBPermissions 
@@ -166,7 +228,14 @@ ALTER PROCEDURE dbo.sp_DBPermissions
     @IncludeMSShipped bit = 1,
     @DropTempTables bit = 1,
     @Output varchar(30) = 'Default',
-    @Print bit = 0
+    @Print bit = 0,
+    @OutputServerName                   VARCHAR(1024) = NULL,
+    @OutputDatabaseName                 VARCHAR(256)  = NULL,
+    @OutputSchemaName                   VARCHAR(256)  = NULL,
+    @OutputTableName4Principals         VARCHAR(256)  = NULL,
+    @OutputTableName4RoleMemberships    VARCHAR(256)  = NULL,
+    @OutputTableName4Permissions        VARCHAR(256)  = NULL,
+    @Debug                              INT           = 0
 )
 AS
   
@@ -181,6 +250,279 @@ DECLARE @ObjectList nvarchar(max)
 DECLARE @ObjectList2 nvarchar(max)
 DECLARE @use nvarchar(500)
 DECLARE @AllDBNames sysname
+
+
+DECLARE @OutputTable4Principals         VARCHAR(4000);
+DECLARE @OutputTable4RoleMemberships    VARCHAR(4000);
+DECLARE @OutputTable4Permissions        VARCHAR(4000);
+DECLARE @tsql                           NVARCHAR(MAX);
+DECLARE @LineFeed                       CHAR(2);
+DECLARE @ExecRet                        INT;
+
+DECLARE @tsql_Insert_Principals         NVARCHAR(MAX);
+DECLARE @tsql_Insert_RoleMemberships    NVARCHAR(MAX);
+DECLARE @tsql_Insert_Permissions        NVARCHAR(MAX);
+
+SET @LineFeed = CHAR(13) + CHAR(10);
+
+
+/* Preparing variables for final storage */
+
+IF(@Print <> 1)
+BEGIN 
+    -- TODO: validate @OutputServerName
+
+    SELECT 
+        @OutputDatabaseName                 =   CASE 
+                                                    WHEN LEN(LTRIM(@OutputDatabaseName)) = 0 OR @OutputDatabaseName IS NULL 
+                                                        THEN DB_NAME()
+                                                    ELSE @OutputDatabaseName
+                                                END,
+        @OutputSchemaName                   =   CASE 
+                                                    WHEN LEN(LTRIM(@OutputSchemaName)) = 0
+                                                        THEN NULL
+                                                    ELSE @OutputSchemaName
+                                                END,
+        @OutputTableName4Permissions        =   CASE 
+                                                    WHEN LEN(LTRIM(@OutputTableName4Permissions)) = 0
+                                                        THEN NULL
+                                                    ELSE @OutputTableName4Permissions
+                                                END,        
+        @OutputTableName4Principals         =   CASE 
+                                                    WHEN LEN(LTRIM(@OutputTableName4Principals)) = 0
+                                                        THEN NULL
+                                                    ELSE @OutputTableName4Principals
+                                                END,        
+        @OutputTableName4RoleMemberships    =   CASE 
+                                                    WHEN LEN(LTRIM(@OutputTableName4RoleMemberships)) = 0
+                                                        THEN NULL
+                                                    ELSE @OutputTableName4RoleMemberships
+                                                END,
+        @OutputTable4Permissions            =   CASE 
+                                                    WHEN @OutputSchemaName IS NOT NULL AND @OutputTableName4Permissions IS NOT NULL
+                                                        THEN QUOTENAME(@OutputDatabaseName) + '.' + QUOTENAME(@OutputSchemaName) + '.' + QUOTENAME(@OutputTableName4Permissions)
+                                                    ELSE NULL
+                                                END ,
+        @OutputTable4Principals             =   CASE 
+                                                    WHEN @OutputSchemaName IS NOT NULL AND @OutputTableName4Principals IS NOT NULL
+                                                        THEN QUOTENAME(@OutputDatabaseName) + '.' + QUOTENAME(@OutputSchemaName) + '.' + QUOTENAME(@OutputTableName4Principals)
+                                                    ELSE NULL
+                                                END ,
+        @OutputTable4RoleMemberships        =   CASE 
+                                                    WHEN @OutputSchemaName IS NOT NULL AND @OutputTableName4RoleMemberships IS NOT NULL
+                                                        THEN QUOTENAME(@OutputDatabaseName) + '.' + QUOTENAME(@OutputSchemaName) + '.' + QUOTENAME(@OutputTableName4RoleMemberships)
+                                                    ELSE NULL
+                                                END
+    ;
+
+    IF(@Debug > 0)
+    BEGIN 
+        IF(@OutputTable4Permissions IS NOT NULL)
+        BEGIN
+            RAISERROR('Will store permissions to %s',0,1, @OutputTable4Permissions);
+        END;
+        IF(@OutputTable4Principals IS NOT NULL)
+        BEGIN
+            RAISERROR('Will store permissions to %s',0,1,@OutputTable4Principals);
+        END;
+        IF(@OutputTable4RoleMemberships IS NOT NULL)
+        BEGIN
+            RAISERROR('Will store permissions to %s',0,1,@OutputTable4RoleMemberships);
+        END;
+    END;
+
+
+    IF(@OutputTable4Permissions IS NOT NULL OR @OutputTable4Principals IS NOT NULL OR @OutputTable4RoleMemberships IS NOT NULL)
+    BEGIN
+        IF(DB_ID(@OutputDatabaseName) IS NULL)
+        BEGIN 
+            RAISERROR('Value provided for parameter @OutputDatabaseName [%s] is not a database on this instance',12,1,@OutputDatabaseName);
+            RETURN;
+        END;
+        SET @tsql = 'USE ' + @OutputDatabaseName + ';' + @LineFeed +
+                    'IF(SCHEMA_ID(@SchemaName) IS NULL)' + @LineFeed +
+                    'BEGIN' + @LineFeed +
+                    '    RAISERROR(''No schema'',12,1);' + @LineFeed +
+                    '    RETURN;' + @LineFeed +
+                    'END;' 
+                    ;
+                    
+        EXEC @ExecRet = sp_executesql @tsql, N'@SchemaName VARCHAR(256)',@SchemaName = @OutputSchemaName ;
+        
+        IF(@ExecRet <> 0)
+        BEGIN
+            RAISERROR('Provided schema name [%s] not found in database [%s]',12,1);
+            RETURN;
+        END;
+        
+        IF(@OutputTable4Permissions IS NOT NULL)
+        BEGIN
+            IF(OBJECT_ID(@OutputTable4Permissions) IS NULL)
+            BEGIN
+                IF(@Debug > 0)
+                BEGIN
+                    RAISERROR('Output table for Permissions will be created.',0,1);
+                END;
+                
+                SET @tsql = 'USE ' + QUOTENAME(@OutputDatabaseName) + ';' + @LineFeed +
+                            'CREATE TABLE ' + QUOTENAME(@OutputSchemaName) + '.' + QUOTENAME(@OutputTableName4Permissions) + '(' + @LineFeed +
+                            '    ServerName         VARCHAR(1200) NOT NULL,' + @LineFeed +
+                            '    CheckDate          DATETIME2     NOT NULL,' + @LineFeed +
+                            '    ReportId           INT,' + @LineFeed + -- column in case we add a "ReportHistory" table with a unique identifier for all outputs of a given execution 
+                            '    DatabaseName       VARCHAR(256),' + @LineFeed +
+                            '    GranteePrincipalId INT,' + @LineFeed +
+                            '    GranteeName        VARCHAR(256),' + @LineFeed +
+                            '    GrantorName        VARCHAR(256),' + @LineFeed +
+                            '    PermissionClass    VARCHAR(60),' + @LineFeed + -- class_desc
+                            '    PermissionName     VARCHAR(256),' + @LineFeed +
+                            '    ObjectName         VARCHAR(256),' + @LineFeed +
+                            '    SchemaName         VARCHAR(256),' + @LineFeed +
+                            '    PermissionLevel    VARCHAR(60),' + @LineFeed + -- state_desc
+                            '    UndoScript         NVARCHAR(MAX),' + @LineFeed + -- RevokeScript
+                            '    RedoScript         NVARCHAR(MAX)' + @LineFeed + -- GrantScript
+                            ');'
+                            ;
+                
+                IF(@Debug > 1)
+                BEGIN
+                    RAISERROR( @tsql,0,1);
+                END;
+                
+                EXEC @ExecRet = sp_executesql @tsql;
+                
+                IF(@ExecRet <> 0)
+                BEGIN
+                    RAISERROR('Unable to create table %s',12,1,@OutputTable4Permissions);
+                    RETURN;
+                END;                            
+            END;
+            SET @tsql_Insert_Permissions =  'INSERT INTO ' + @OutputTable4Permissions + '(' + @LineFeed + 
+                                            '    ServerName, CheckDate, ReportId,' + @LineFeed +
+                                            '    DatabaseName, GranteePrincipalId, GranteeName, GrantorName,' + @LineFeed +
+                                            '    PermissionClass, PermissionName, ObjectName,SchemaName,PermissionLevel,' + @LineFeed +
+                                            '    UndoScript , RedoScript' + @LineFeed +
+                                            ')' + @LineFeed +
+                                            'SELECT' + @LineFeed +
+                                            '    CONVERT(VARCHAR(1200),SERVERPROPERTY(''ServerName'')),' + @LineFeed +
+                                            '    SYSDATETIME(),' + @LineFeed +
+                                            '    NULL,' + @LineFeed
+                                            -- specific columns added at temporary table creation
+                                            ;
+        END;
+        IF(@OutputTable4Principals IS NOT NULL)  
+        BEGIN
+            IF(OBJECT_ID(@OutputTable4Principals) IS NULL)
+            BEGIN
+                IF(@Debug > 0)
+                BEGIN
+                    RAISERROR('Output table for Principals will be created.',0,1);
+                END;
+                
+                SET @tsql = 'USE ' + QUOTENAME(@OutputDatabaseName) + ';' + @LineFeed +
+                            'CREATE TABLE ' + QUOTENAME(@OutputSchemaName) + '.' + QUOTENAME(@OutputTableName4Principals) + '(' + @LineFeed +
+                            '    ServerName                     VARCHAR(1200) NOT NULL DEFAULT @@SERVERNAME,' + @LineFeed +
+                            '    CheckDate                      DATETIME2     NOT NULL DEFAULT SYSDATETIME(),' + @LineFeed +
+                            '    ReportId                       INT,' + @LineFeed + -- column in case we add a "ReportHistory" table with a unique identifier for all outputs of a given execution 
+                            '    DatabaseName                   VARCHAR(256),' + @LineFeed +
+                            '    DatabasePrincipalId            INT,' + @LineFeed +
+                            '    DatabasePrincipalName          VARCHAR(256),' + @LineFeed +
+                            '    ServerPrincipalName            VARCHAR(256),' + @LineFeed +
+                            '    PrincipalType                  CHAR(1),' + @LineFeed + -- type
+                            '    PrincipalTypeDesc              VARCHAR(60),' + @LineFeed +
+                            '    DefaultSchemaName              VARCHAR(256),' + @LineFeed +
+                            '    PrincipalCreationDateStamp     DATETIME2,' + @LineFeed +
+                            '    PrincipalLastModifDatestamp    VARCHAR(60),' + @LineFeed + 
+                            '    PrincipalIsFixedRole           BIT,' + @LineFeed + -- is_fixed_role
+                            '    RoleAuthorization              VARCHAR(256),' + @LineFeed + 
+                            '    PrincipalSID                   VARBINARY(85),' + @LineFeed +
+                            '    UndoScript                     NVARCHAR(MAX),' + @LineFeed + -- DropScript
+                            '    RedoScript                     NVARCHAR(MAX)' + @LineFeed +  -- CreateScript
+                            ');'
+                            ;
+        
+                IF(@Debug > 1)
+                BEGIN
+                    RAISERROR(@tsql,0,1);
+                END;
+                
+                EXEC @ExecRet = sp_executesql @tsql;
+                
+                IF(@ExecRet <> 0)
+                BEGIN
+                    RAISERROR('Unable to create table %s',12,1,@OutputTable4Principals);
+                    RETURN;
+                END;
+            END;
+            SET @tsql_Insert_Principals =   'INSERT INTO ' + @OutputTable4Principals + '(' + @LineFeed + 
+                                            '    ServerName, CheckDate, ReportId,' + @LineFeed +
+                                            '    DatabaseName, DatabasePrincipalId, DatabasePrincipalName, ServerPrincipalName,' + @LineFeed +
+                                            '    PrincipalType, PrincipalTypeDesc, DefaultSchemaName,' + @LineFeed +
+                                            '    PrincipalCreationDateStamp,PrincipalLastModifDatestamp,' + @LineFeed +
+                                            '    PrincipalIsFixedRole, RoleAuthorization,PrincipalSID,' + @LineFeed +
+                                            '    UndoScript , RedoScript' + @LineFeed +
+                                            ')' + @LineFeed +
+                                            'SELECT' + @LineFeed +
+                                            '    CONVERT(VARCHAR(1200),SERVERPROPERTY(''ServerName'')),' + @LineFeed +
+                                            '    SYSDATETIME(),' + @LineFeed +
+                                            '    NULL,' + @LineFeed
+                                            -- specific columns added at temporary table creation
+                                            ;
+        END;
+        IF(@OutputTable4RoleMemberships IS NOT NULL)
+        BEGIN
+            IF(OBJECT_ID(@OutputTable4RoleMemberships) IS NULL)
+            BEGIN
+                IF(@Debug > 0)
+                BEGIN
+                    RAISERROR('Output table for Role memberships will be created.',0,1);
+                END;
+                
+                SET @tsql = 'USE ' + QUOTENAME(@OutputDatabaseName) + ';' + @LineFeed +
+                            'CREATE TABLE ' + QUOTENAME(@OutputSchemaName) + '.' + QUOTENAME(@OutputTableName4RoleMemberships) + '(' + @LineFeed +
+                            '    ServerName                     VARCHAR(1200) NOT NULL DEFAULT @@SERVERNAME,' + @LineFeed +
+                            '    CheckDate                      DATETIME2     NOT NULL DEFAULT SYSDATETIME(),' + @LineFeed +
+                            '    ReportId                       INT,' + @LineFeed + -- column in case we add a "ReportHistory" table with a unique identifier for all outputs of a given execution 
+                            '    DatabaseName                   VARCHAR(256),' + @LineFeed +
+                            '    MemberPrincipalId              INT,' + @LineFeed +
+                            '    MemberName                     VARCHAR(256),' + @LineFeed + -- username (but role can be member of a role!)
+                            '    RoleName                       VARCHAR(256),' + @LineFeed +
+                            '    UndoScript                     NVARCHAR(MAX),' + @LineFeed + -- DropScript
+                            '    RedoScript                     NVARCHAR(MAX)' + @LineFeed + -- AddScript
+                            ');'
+                            ;
+                            
+                IF(@Debug > 1)
+                BEGIN
+                    RAISERROR(@tsql,0,1);
+                END;
+                            
+                EXEC @ExecRet = sp_executesql @tsql;
+                
+                IF(@ExecRet <> 0)
+                BEGIN
+                    RAISERROR('Unable to create table %s',12,1,@OutputTable4RoleMemberships);
+                    RETURN;
+                END;
+            END;
+            SET @tsql_Insert_RoleMemberships =  'INSERT INTO ' + @OutputTable4RoleMemberships + '(' + @LineFeed + 
+                                                    '    ServerName, CheckDate, ReportId,' + @LineFeed +
+                                                    '    DatabaseName, MemberPrincipalId, MemberName, RoleName,' + @LineFeed +
+                                                    '    UndoScript , RedoScript' + @LineFeed +
+                                                    ')' + @LineFeed +
+                                                    'SELECT' + @LineFeed +
+                                                    '    CONVERT(VARCHAR(1200),SERVERPROPERTY(''ServerName'')),' + @LineFeed +
+                                                    '    SYSDATETIME(),' + @LineFeed +
+                                                    '    NULL,' + @LineFeed
+                                                    -- specific columns added at temporary table creation
+                                                    ;
+        END;
+    END;
+END;
+ELSE
+BEGIN
+    IF(@Debug > 0)
+        RAISERROR('Ignoring @Output* parameters as Print equals 1',0,1);
+END;
     
 IF @DBName IS NULL OR @DBName = N'All'
     BEGIN
@@ -368,7 +710,14 @@ BEGIN
         sid varbinary(85) NULL,
         DropScript nvarchar(max) NULL,
         CreateScript nvarchar(max) NULL
-        )
+    );
+    
+    SET @tsql_Insert_Principals = @tsql_Insert_Principals +
+                                  '    DBName, DBPrincipalId, DBPrincipal, SrvPrincipal, [type], type_desc, default_schema_name,' + @LineFeed +
+                                  '    create_date,modify_date,is_fixed_role,RoleAuthorization,sid,' + @LineFeed +
+                                  '    DropScript, CreateScript' + @LineFeed +
+                                  'FROM ##DBPrincipals;'
+                                  ;
     
     SET @sql =  @use + N'INSERT INTO ##DBPrincipals ' + NCHAR(13) + @sql
 
@@ -409,6 +758,7 @@ BEGIN
 END  
 --=========================================================================
 -- Database Role Members
+
 SET @sql =  
     N'SELECT ' + CASE WHEN @DBName = 'All' THEN N'@AllDBNames' ELSE N'''' + @DBName + N'''' END + N' AS DBName,' + 
     N' Users.principal_id AS UserPrincipalId, Users.name AS UserName, Roles.name AS RoleName, ' + NCHAR(13) + 
@@ -511,6 +861,7 @@ BEGIN
 END
 ELSE
 BEGIN
+
     IF object_id('tempdb..##DBRoles') IS NOT NULL
         DROP TABLE ##DBRoles
 
@@ -522,7 +873,13 @@ BEGIN
         RoleName sysname NULL,
         DropScript nvarchar(max) NULL,
         AddScript nvarchar(max) NULL
-        )
+    );
+    
+    SET @tsql_Insert_RoleMemberships =  @tsql_Insert_RoleMemberships +
+                                        '    DBName, UserPrincipalId, UserName, RoleName,' + @LineFeed +
+                                        '    DropScript, AddScript' + @LineFeed +
+                                        'FROM ##DBRoles;'
+                                        ;
 
     SET @sql =  @use + NCHAR(13) + 'INSERT INTO ##DBRoles ' + NCHAR(13) + @sql
     
@@ -794,13 +1151,19 @@ BEGIN
         GranteeName sysname NULL,
         GrantorName sysname NULL,
         class_desc nvarchar(60) NULL,
-        permission_name nvarchar(128) NULL,
+        [permission_name] nvarchar(128) NULL,
         ObjectName sysname NULL,
         SchemaName sysname NULL,
         state_desc nvarchar(60) NULL,
         RevokeScript nvarchar(max) NULL,
         GrantScript nvarchar(max) NULL
-        )
+    );
+    
+    SET @tsql_Insert_Permissions =  @tsql_Insert_Permissions +
+                                    '    DBName, GranteePrincipalId, GranteeName, GrantorName,class_desc,  [permission_name],' + @LineFeed +
+                                    '    ObjectName, SchemaName, state_desc, RevokeScript, GrantScript' + @LineFeed +
+                                    'FROM ##DBPermissions;'
+                                    ;
     
     -- Add insert statement to @sql
     SET @sql =  @use + @ObjectList + @ObjectList2 +
@@ -918,6 +1281,54 @@ BEGIN
                 SchemaName, state_desc, RevokeScript, GrantScript 
             FROM ##DBPermissions ORDER BY DBName, GranteeName, SchemaName, ObjectName, permission_name
     END
+    
+    IF(@tsql_Insert_Principals IS NOT NULL)
+    BEGIN   
+        IF(@Debug > 0)
+            RAISERROR('Storing results for Principals',0,1);
+        IF(@Debug > 1)
+            RAISERROR(@tsql_Insert_Principals,0,1);
+            
+        EXEC @ExecRet = sp_executesql @tsql_Insert_Principals;
+        IF(@ExecRet <> 0)
+        BEGIN
+            RAISERROR('Something went wrong with insertion for Principals',10,1);
+            RAISERROR('Used query is:' ,0,1);
+            RAISERROR(@tsql_Insert_Principals,0,1);
+        END;    
+    END;
+    
+    IF(@tsql_Insert_RoleMemberships IS NOT NULL)
+    BEGIN
+        IF(@Debug > 0)
+            RAISERROR('Storing results for role memberships',0,1);
+        IF(@Debug > 1)
+            RAISERROR(@tsql_Insert_RoleMemberships,0,1);
+            
+        EXEC @ExecRet = sp_executesql @tsql_Insert_RoleMemberships;
+        IF(@ExecRet <> 0)
+        BEGIN
+            RAISERROR('Something went wrong with insertion for Role Memberships',10,1);
+            RAISERROR('Used query is:' ,0,1);
+            RAISERROR(@tsql_Insert_RoleMemberships,0,1);
+        END;    
+    END;
+    
+    IF(@tsql_Insert_Permissions IS NOT NULL)
+    BEGIN  
+        IF(@Debug > 0)
+            RAISERROR('Storing results for permissions',0,1);
+        IF(@Debug > 1)
+            RAISERROR(@tsql_Insert_Permissions,0,1);
+            
+        EXEC @ExecRet = sp_executesql @tsql_Insert_Permissions;
+        IF(@ExecRet <> 0)
+        BEGIN
+            RAISERROR('Something went wrong with insertion for Permissions',10,1);
+            RAISERROR('Used query is:' ,0,1);
+            RAISERROR(@tsql_Insert_Permissions,0,1);
+        END;    
+    END;
 
     IF @DropTempTables = 1
     BEGIN
