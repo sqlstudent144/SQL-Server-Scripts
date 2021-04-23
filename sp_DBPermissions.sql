@@ -1,3 +1,5 @@
+USE master
+GO
 IF OBJECT_ID('dbo.sp_DBPermissions') IS NULL
     EXEC sp_executesql N'CREATE PROCEDURE dbo.sp_DBPermissions AS PRINT ''Stub'';'
 GO
