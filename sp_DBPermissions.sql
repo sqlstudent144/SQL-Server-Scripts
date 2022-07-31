@@ -74,12 +74,12 @@ Parameters:
         When this is set to 1 (the default) then all principals will be included.  When set 
         to 0 the fixed server roles and SA and Public principals will be excluded.
     @CopyTo
-	If @Principal is filled in then the value in @CopyTo is used in the drop and create
-	scripts instead of @Principal. In the case of the CREATE USER statement @CopyTo 
-	also replaces the name of the server level principal, however it does not affect the
-	default schema name.
-	NOTE: It is very important to note that if @CopyTo is not a valid name the drop/create
-	scripts may fail.
+        If @Principal is filled in then the value in @CopyTo is used in the drop and create
+        scripts instead of @Principal. In the case of the CREATE USER statement @CopyTo 
+        also replaces the name of the server level principal, however it does not affect the
+        default schema name.
+        NOTE: It is very important to note that if @CopyTo is not a valid name the drop/create
+        scripts may fail.
     @DropTempTables
         When this is set to 1 (the default) the temp tables used are dropped.  If it's 0
         then the tempt ables are kept for references after the code has finished.
@@ -161,8 +161,9 @@ Data is ordered as follows
 -- V6.2
 -- 07/15/2022 - Add @CopyTo parameter to handle requests like "Please copy permissions from x to y."
 -- 07/15/2022 - Clean up dyanmic formatting to remove most of the N' and "' + CHAR(13) + " strings.
+-- 07/31/2022 - Formatting: Replace tabs with spaces
 *********************************************************************************************/
-    
+
 ALTER PROCEDURE dbo.sp_DBPermissions 
 (
     @DBName sysname = NULL, 
@@ -174,7 +175,7 @@ ALTER PROCEDURE dbo.sp_DBPermissions
     @LoginName sysname = NULL,
     @UseLikeSearch bit = 1,
     @IncludeMSShipped bit = 1,
-	@CopyTo sysname = NULL,
+    @CopyTo sysname = NULL,
     @DropTempTables bit = 1,
     @Output varchar(30) = 'Default',
     @Print bit = 0
@@ -238,8 +239,8 @@ BEGIN
 END
 
 IF (@Principal IS NULL AND @CopyTo IS NOT NULL) OR LEN(@CopyTo) = 0
-	SET @CopyTo = NULL
-	  
+    SET @CopyTo = NULL
+  
 IF @Print = 1 AND @DBName = N'All'
     BEGIN
         PRINT 'DECLARE @AllDBNames sysname'
