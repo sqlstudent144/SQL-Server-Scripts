@@ -73,13 +73,13 @@ Parameters:
     @IncludeMSShipped
         When this is set to 1 (the default) then all principals will be included.  When set 
         to 0 the fixed server roles and SA and Public principals will be excluded.
-	@CopyTo
-		If @Principal is filled in then the value in @CopyTo is used in the drop and create
-		scripts instead of @Principal. In the case of the CREATE USER statement @CopyTo 
-		also replaces the name of the server level principal, however it does not affect the
-		default schema name.
-		NOTE: It is very important to note that if @CopyTo is not a valid name the drop/create
-		scripts may fail.
+    @CopyTo
+	If @Principal is filled in then the value in @CopyTo is used in the drop and create
+	scripts instead of @Principal. In the case of the CREATE USER statement @CopyTo 
+	also replaces the name of the server level principal, however it does not affect the
+	default schema name.
+	NOTE: It is very important to note that if @CopyTo is not a valid name the drop/create
+	scripts may fail.
     @DropTempTables
         When this is set to 1 (the default) the temp tables used are dropped.  If it's 0
         then the tempt ables are kept for references after the code has finished.
