@@ -1,4 +1,5 @@
 -- Source: https://www.sqlservercentral.com/blogs/identifying-failed-queries-with-extended-events
+-- See also: https://straightforwardsql.com/posts/investigating-errors-with-extended-events/
 --- Create Xevent
 ------ Be sure to change the filename and metadatafile
 CREATE EVENT SESSION [FailedQueries] ON SERVER 
