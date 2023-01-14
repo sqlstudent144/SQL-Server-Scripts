@@ -162,6 +162,7 @@ Data is ordered as follows
 -- 07/15/2022 - Add @CopyTo parameter to handle requests like "Please copy permissions from x to y."
 -- 07/15/2022 - Clean up dyanmic formatting to remove most of the N' and "' + CHAR(13) + " strings.
 -- 07/31/2022 - Formatting: Replace tabs with spaces
+-- 01/14/2023 - Fixes for unicode strings
 *********************************************************************************************/
 
 ALTER PROCEDURE dbo.sp_DBPermissions 
@@ -250,7 +251,7 @@ IF @Print = 1 AND @DBName = N'All'
 --=========================================================================
 -- Database Principals
 SET @sql =   
-    N'SELECT ' + CASE WHEN @DBName = 'All' THEN N'@AllDBNames' ELSE N'''' + @DBName + N'''' END + N' AS DBName,
+    N'SELECT ' + CASE WHEN @DBName = 'All' THEN N'@AllDBNames' ELSE N'N''' + @DBName + N'''' END + N' AS DBName,
        DBPrincipals.principal_id AS DBPrincipalId, DBPrincipals.name AS DBPrincipal, SrvPrincipals.name AS SrvPrincipal, 
        DBPrincipals.type, DBPrincipals.type_desc, DBPrincipals.default_schema_name, DBPrincipals.create_date,  
        DBPrincipals.modify_date, DBPrincipals.is_fixed_role, 
@@ -425,7 +426,7 @@ END
 --=========================================================================
 -- Database Role Members
 SET @sql =  
-    N'SELECT ' + CASE WHEN @DBName = 'All' THEN N'@AllDBNames' ELSE N'''' + @DBName + N'''' END + N' AS DBName,
+    N'SELECT ' + CASE WHEN @DBName = 'All' THEN N'@AllDBNames' ELSE N'N''' + @DBName + N'''' END + N' AS DBName,
      Users.principal_id AS UserPrincipalId, Users.name AS UserName, Roles.name AS RoleName, ' + NCHAR(13) + 
     CASE WHEN @DBName = 'All' THEN N'   ''USE '' + QUOTENAME(@AllDBNames) + ''; '' + ' + NCHAR(13) ELSE N'' END + 
     N'   CASE WHEN Users.is_fixed_role = 0 AND Users.name <> ''dbo'' THEN 
@@ -700,7 +701,7 @@ SET @ObjectList2 =  N'
        ) ' + NCHAR(13)
 
     SET @sql =
-    N'SELECT ' + CASE WHEN @DBName = 'All' THEN N'@AllDBNames' ELSE N'''' + @DBName + N'''' END + N' AS DBName, 
+    N'SELECT ' + CASE WHEN @DBName = 'All' THEN N'@AllDBNames' ELSE N'N''' + @DBName + N'''' END + N' AS DBName, 
        Grantee.principal_id AS GranteePrincipalId, Grantee.name AS GranteeName, Grantor.name AS GrantorName, 
        Permission.class_desc, Permission.permission_name, 
        ObjectList.name + CASE WHEN Columns.name IS NOT NULL THEN '' ('' + Columns.name + '')'' ELSE '''' END AS ObjectName, 
@@ -891,22 +892,22 @@ BEGIN
     ELSE IF @Output = 'Report'
     BEGIN
         SELECT DBName, DBPrincipal, SrvPrincipal, type, type_desc,
-                STUFF((SELECT ', ' + ##DBRoles.RoleName
+                STUFF((SELECT N', ' + ##DBRoles.RoleName
                         FROM ##DBRoles
                         WHERE ##DBPrincipals.DBName = ##DBRoles.DBName
                           AND ##DBPrincipals.DBPrincipalId = ##DBRoles.UserPrincipalId
                         ORDER BY ##DBRoles.RoleName
-                        FOR XML PATH(''),TYPE).value('.','VARCHAR(MAX)')
+                        FOR XML PATH(''),TYPE).value('.','NVARCHAR(MAX)')
                     , 1, 2, '') AS RoleMembership,
-                STUFF((SELECT ', ' + ##DBPermissions.state_desc + ' ' + ##DBPermissions.permission_name + ' on ' + 
-                        COALESCE('OBJECT:'+##DBPermissions.SchemaName + '.' + ##DBPermissions.ObjectName, 
-                                'SCHEMA:'+##DBPermissions.SchemaName,
-                                'DATABASE:'+##DBPermissions.DBName)
+                STUFF((SELECT N', ' + ##DBPermissions.state_desc + N' ' + ##DBPermissions.permission_name + N' on ' + 
+                        COALESCE(N'OBJECT:'+##DBPermissions.SchemaName + N'.' + ##DBPermissions.ObjectName, 
+                                N'SCHEMA:'+##DBPermissions.SchemaName,
+                                N'DATABASE:'+##DBPermissions.DBName)
                         FROM ##DBPermissions
                         WHERE ##DBPrincipals.DBName = ##DBPermissions.DBName
                           AND ##DBPrincipals.DBPrincipalId = ##DBPermissions.GranteePrincipalId
                         ORDER BY ##DBPermissions.state_desc, ISNULL(##DBPermissions.ObjectName, ##DBPermissions.DBName), ##DBPermissions.permission_name
-                        FOR XML PATH(''),TYPE).value('.','VARCHAR(MAX)')
+                        FOR XML PATH(''),TYPE).value('.','NVARCHAR(MAX)')
                     , 1, 2, '') AS DirectPermissions
         FROM ##DBPrincipals
         ORDER BY DBName, type, DBPrincipal
