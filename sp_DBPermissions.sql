@@ -258,29 +258,29 @@ SET @sql =
        Authorizations.name AS RoleAuthorization, DBPrincipals.sid, 
        CASE WHEN DBPrincipals.is_fixed_role = 0 AND DBPrincipals.name NOT IN (''dbo'',''guest'', ''INFORMATION_SCHEMA'', ''public'', ''sys'') THEN ' + NCHAR(13) + 
     CASE WHEN @DBName = 'All' THEN N'   ''USE '' + QUOTENAME(@AllDBNames) + ''; '' + ' + NCHAR(13) ELSE N'' END + 
-    N'            ''IF DATABASE_PRINCIPAL_ID('''''' + ' + ISNULL(QUOTENAME(@CopyTo,''''),'DBPrincipals.name') + ' + '''''') IS NOT NULL '' + 
+    N'            ''IF DATABASE_PRINCIPAL_ID(N'''''' + N' + ISNULL(QUOTENAME(@CopyTo,''''),'DBPrincipals.name') + ' + '''''') IS NOT NULL '' + 
                ''DROP '' + CASE DBPrincipals.[type] WHEN ''C'' THEN NULL 
                    WHEN ''K'' THEN NULL 
                    WHEN ''R'' THEN ''ROLE''  
                    WHEN ''A'' THEN ''APPLICATION ROLE'' 
                    ELSE ''USER'' END + 
-               '' ''+QUOTENAME(' + ISNULL(QUOTENAME(@CopyTo,''''),'DBPrincipals.name') + '' + @Collation + N') + '';'' ELSE NULL END AS DropScript, 
+               '' ''+QUOTENAME(N' + ISNULL(QUOTENAME(@CopyTo,''''),'DBPrincipals.name') + '' + @Collation + N') + '';'' ELSE NULL END AS DropScript, 
        CASE WHEN DBPrincipals.is_fixed_role = 0 AND DBPrincipals.name NOT IN (''dbo'',''guest'', ''INFORMATION_SCHEMA'', ''public'', ''sys'') THEN ' + NCHAR(13) + 
     CASE WHEN @DBName = 'All' THEN N'   ''USE '' + QUOTENAME(@AllDBNames) + ''; '' + ' +NCHAR(13) ELSE N'' END + 
-    N'            ''IF DATABASE_PRINCIPAL_ID('''''' + ' + ISNULL(QUOTENAME(@CopyTo,''''),'DBPrincipals.name') + ' + '''''') IS NULL '' + 
+    N'            ''IF DATABASE_PRINCIPAL_ID(N'''''' + N' + ISNULL(QUOTENAME(@CopyTo,''''),'DBPrincipals.name') + ' + '''''') IS NULL '' + 
                ''CREATE '' + CASE DBPrincipals.[type] WHEN ''C'' THEN NULL 
                    WHEN ''K'' THEN NULL 
                    WHEN ''R'' THEN ''ROLE''  
                    WHEN ''A'' THEN ''APPLICATION ROLE''  
                    ELSE ''USER'' END + 
-               '' ''+QUOTENAME(' + ISNULL(QUOTENAME(@CopyTo,''''),'DBPrincipals.name') + '' + @Collation + N') END + 
+               '' ''+QUOTENAME(N' + ISNULL(QUOTENAME(@CopyTo,''''),'DBPrincipals.name') + '' + @Collation + N') END + 
                CASE WHEN DBPrincipals.[type] = ''R'' THEN 
                    ISNULL('' AUTHORIZATION ''+QUOTENAME(Authorizations.name' + @Collation + N'),'''') 
                    WHEN DBPrincipals.[type] = ''A'' THEN 
                        ''''  
                    WHEN DBPrincipals.[type] NOT IN (''C'',''K'') THEN 
                        ISNULL('' FOR LOGIN '' + 
-                            QUOTENAME(' + ISNULL(QUOTENAME(@CopyTo,''''),'SrvPrincipals.name') + '' + @Collation + N'),'' WITHOUT LOGIN'') +  
+                            QUOTENAME(N' + ISNULL(QUOTENAME(@CopyTo,''''),'SrvPrincipals.name') + '' + @Collation + N'),'' WITHOUT LOGIN'') +  
                        ISNULL('' WITH DEFAULT_SCHEMA =  ''+
                             QUOTENAME(DBPrincipals.default_schema_name' + @Collation + N'),'''') 
                ELSE '''' 
@@ -302,20 +302,20 @@ SET @sql =
     
 IF LEN(ISNULL(@Principal,@Role)) > 0 
     IF @Print = 1
-        SET @sql = @sql + NCHAR(13) + N'  AND DBPrincipals.name ' + @LikeOperator + N' ' + 
+        SET @sql = @sql + NCHAR(13) + N'  AND DBPrincipals.name ' + @LikeOperator + N' N' + 
             ISNULL(QUOTENAME(@Principal,N''''),QUOTENAME(@Role,'''')) 
     ELSE
         SET @sql = @sql + NCHAR(13) + N'  AND DBPrincipals.name ' + @LikeOperator + N' ISNULL(@Principal,@Role) '
     
 IF LEN(@Type) > 0
     IF @Print = 1
-        SET @sql = @sql + NCHAR(13) + N'  AND DBPrincipals.type ' + @LikeOperator + N' ' + QUOTENAME(@Type,'''')
+        SET @sql = @sql + NCHAR(13) + N'  AND DBPrincipals.type ' + @LikeOperator + N' N' + QUOTENAME(@Type,'''')
     ELSE
         SET @sql = @sql + NCHAR(13) + N'  AND DBPrincipals.type ' + @LikeOperator + N' @Type'
     
 IF LEN(@LoginName) > 0
     IF @Print = 1
-        SET @sql = @sql + NCHAR(13) + N'  AND SrvPrincipals.name ' + @LikeOperator + N' ' + QUOTENAME(@LoginName,'''')
+        SET @sql = @sql + NCHAR(13) + N'  AND SrvPrincipals.name ' + @LikeOperator + N' N' + QUOTENAME(@LoginName,'''')
     ELSE
         SET @sql = @sql + NCHAR(13) + N'  AND SrvPrincipals.name ' + @LikeOperator + N' @LoginName'
   
@@ -330,7 +330,7 @@ IF LEN(@ObjectName) > 0
         N'                 AND Permission.grantee_principal_id = DBPrincipals.principal_id ' + NCHAR(13)
           
         IF @Print = 1
-            SET @sql = @sql + N'                 AND [Objects].name ' + @LikeOperator + N' ' + QUOTENAME(@ObjectName,'''') 
+            SET @sql = @sql + N'                 AND [Objects].name ' + @LikeOperator + N' N' + QUOTENAME(@ObjectName,'''') 
         ELSE
             SET @sql = @sql + N'                 AND [Objects].name ' + @LikeOperator + N' @ObjectName'
   
@@ -345,7 +345,7 @@ IF LEN(@Permission) > 0
         N'               WHERE Permission.grantee_principal_id = DBPrincipals.principal_id ' + NCHAR(13)
           
         IF @Print = 1
-            SET @sql = @sql + N'                 AND Permission.permission_name ' + @LikeOperator + N' ' + QUOTENAME(@Permission,'''') 
+            SET @sql = @sql + N'                 AND Permission.permission_name ' + @LikeOperator + N' N' + QUOTENAME(@Permission,'''') 
         ELSE
             SET @sql = @sql + N'                 AND Permission.permission_name ' + @LikeOperator + N' @Permission'
   
@@ -430,15 +430,15 @@ SET @sql =
      Users.principal_id AS UserPrincipalId, Users.name AS UserName, Roles.name AS RoleName, ' + NCHAR(13) + 
     CASE WHEN @DBName = 'All' THEN N'   ''USE '' + QUOTENAME(@AllDBNames) + ''; '' + ' + NCHAR(13) ELSE N'' END + 
     N'   CASE WHEN Users.is_fixed_role = 0 AND Users.name <> ''dbo'' THEN 
-       ''EXEC sp_droprolemember @rolename = ''+QUOTENAME(Roles.name' + @Collation + 
-                N','''''''')+'', @membername = ''+QUOTENAME(CASE WHEN Users.name = ''dbo'' THEN NULL
-                ELSE ' + ISNULL(QUOTENAME(@CopyTo,''''),'Users.name') + ' END' + @Collation + 
+       ''EXEC sp_droprolemember @rolename = N''+QUOTENAME(Roles.name' + @Collation + 
+                N','''''''')+'', @membername = N''+QUOTENAME(CASE WHEN Users.name = ''dbo'' THEN NULL
+                ELSE N' + ISNULL(QUOTENAME(@CopyTo,''''),'Users.name') + ' END' + @Collation + 
                 N','''''''')+'';'' END AS DropScript, ' + NCHAR(13) + 
     CASE WHEN @DBName = 'All' THEN N'   ''USE '' + QUOTENAME(@AllDBNames) + ''; '' + ' + NCHAR(13) ELSE N'' END + 
     N'   CASE WHEN Users.is_fixed_role = 0 AND Users.name <> ''dbo'' THEN 
-       ''EXEC sp_addrolemember @rolename = ''+QUOTENAME(Roles.name' + @Collation + 
-                N','''''''')+'', @membername = ''+QUOTENAME(CASE WHEN Users.name = ''dbo'' THEN NULL
-                ELSE ' + ISNULL(QUOTENAME(@CopyTo,''''),'Users.name') + ' END' + @Collation + 
+       ''EXEC sp_addrolemember @rolename = N''+QUOTENAME(Roles.name' + @Collation + 
+                N','''''''')+'', @membername = N''+QUOTENAME(CASE WHEN Users.name = ''dbo'' THEN NULL
+                ELSE N' + ISNULL(QUOTENAME(@CopyTo,''''),'Users.name') + ' END' + @Collation + 
                 N','''''''')+'';'' END AS AddScript 
     FROM sys.database_role_members RoleMembers 
     JOIN sys.database_principals Users 
@@ -449,19 +449,19 @@ SET @sql =
         
 IF LEN(ISNULL(@Principal,'')) > 0
     IF @Print = 1
-        SET @sql = @sql + NCHAR(13) + N'  AND Users.name ' + @LikeOperator + N' '+QUOTENAME(@Principal,'''')
+        SET @sql = @sql + NCHAR(13) + N'  AND Users.name ' + @LikeOperator + N' N'+QUOTENAME(@Principal,'''')
     ELSE
         SET @sql = @sql + NCHAR(13) + N'  AND Users.name ' + @LikeOperator + N' @Principal'
     
 IF LEN(ISNULL(@Role,'')) > 0
     IF @Print = 1
-        SET @sql = @sql + NCHAR(13) + N'  AND Roles.name ' + @LikeOperator + N' '+QUOTENAME(@Role,'''')
+        SET @sql = @sql + NCHAR(13) + N'  AND Roles.name ' + @LikeOperator + N' N'+QUOTENAME(@Role,'''')
     ELSE
         SET @sql = @sql + NCHAR(13) + N'  AND Roles.name ' + @LikeOperator + N' @Role'
     
 IF LEN(@Type) > 0 
     IF @Print = 1
-        SET @sql = @sql + NCHAR(13) + N'  AND Users.type ' + @LikeOperator + N' ' + QUOTENAME(@Type,'''')
+        SET @sql = @sql + NCHAR(13) + N'  AND Users.type ' + @LikeOperator + N' N' + QUOTENAME(@Type,'''')
     ELSE
         SET @sql = @sql + NCHAR(13) + N'  AND Users.type ' + @LikeOperator + N' @Type'
   
@@ -474,7 +474,7 @@ IF LEN(@LoginName) > 0
                          AND SrvPrincipals.sid = Users.sid
                          AND Users.type NOT IN (''R'') ' + NCHAR(13) 
         IF @Print = 1
-            SET @sql = @sql + NCHAR(13) + '  AND SrvPrincipals.name ' + @LikeOperator + N' ' + QUOTENAME(@LoginName,'''')
+            SET @sql = @sql + NCHAR(13) + '  AND SrvPrincipals.name ' + @LikeOperator + N' N' + QUOTENAME(@LoginName,'''')
         ELSE
             SET @sql = @sql + NCHAR(13) + '  AND SrvPrincipals.name ' + @LikeOperator + N' @LoginName'
   
@@ -492,7 +492,7 @@ IF LEN(@ObjectName) > 0
                          AND Permission.grantee_principal_id = Users.principal_id ' + NCHAR(13)
           
         IF @Print = 1
-            SET @sql = @sql + N'                 AND [Objects].name ' + @LikeOperator + N' ' + QUOTENAME(@ObjectName,'''') 
+            SET @sql = @sql + N'                 AND [Objects].name ' + @LikeOperator + N' N' + QUOTENAME(@ObjectName,'''') 
         ELSE
             SET @sql = @sql + N'                 AND [Objects].name ' + @LikeOperator + N' @ObjectName'
   
@@ -507,7 +507,7 @@ IF LEN(@Permission) > 0
                        WHERE Permission.grantee_principal_id = Users.principal_id ' + NCHAR(13)
           
         IF @Print = 1
-            SET @sql = @sql + N'                 AND Permission.permission_name ' + @LikeOperator + N' ' + QUOTENAME(@Permission,'''') 
+            SET @sql = @sql + N'                 AND Permission.permission_name ' + @LikeOperator + N' N' + QUOTENAME(@Permission,'''') 
         ELSE
             SET @sql = @sql + N'                 AND Permission.permission_name ' + @LikeOperator + N' @Permission'
   
@@ -718,7 +718,7 @@ SET @ObjectList2 =  N'
                CASE WHEN ObjectList.SchemaName + ObjectList.name IS NULL THEN '''' ELSE ''.'' END + 
                ISNULL(QUOTENAME(ObjectList.name),'''') + ISNULL('' (''+ QUOTENAME(Columns.name) + '')'','''') 
                ' + @Collation + ' + '' '' ELSE '''' END + 
-           '' FROM '' + QUOTENAME(' + ISNULL(QUOTENAME(@CopyTo,''''),'Grantee.name') + '' + @Collation + N')  + ''; '' END AS RevokeScript, 
+           '' FROM '' + QUOTENAME(N' + ISNULL(QUOTENAME(@CopyTo,''''),'Grantee.name') + '' + @Collation + N')  + ''; '' END AS RevokeScript, 
        CASE WHEN Grantee.is_fixed_role = 0 AND Grantee.name <> ''dbo'' THEN ' + NCHAR(13) + 
     CASE WHEN @DBName = 'All' THEN N'   ''USE '' + QUOTENAME(@AllDBNames) + ''; '' + ' + NCHAR(13) ELSE N'' END + 
     N'   CASE WHEN Permission.[state]  = ''W'' THEN ''GRANT'' ELSE Permission.state_desc' + @Collation + 
@@ -730,7 +730,7 @@ SET @ObjectList2 =  N'
                CASE WHEN ObjectList.SchemaName + ObjectList.name IS NULL THEN '''' ELSE ''.'' END + 
                ISNULL(QUOTENAME(ObjectList.name),'''') + ISNULL('' (''+ QUOTENAME(Columns.name) + '')'','''') 
                ' + @Collation + N' + '' '' ELSE '''' END + 
-           '' TO '' + QUOTENAME(' + ISNULL(QUOTENAME(@CopyTo,''''),'Grantee.name') + '' + @Collation + N')  + '' '' +  
+           '' TO '' + QUOTENAME(N' + ISNULL(QUOTENAME(@CopyTo,''''),'Grantee.name') + '' + @Collation + N')  + '' '' +  
            CASE WHEN Permission.[state]  = ''W'' THEN '' WITH GRANT OPTION '' ELSE '''' END +  
            '' AS ''+ QUOTENAME(Grantor.name' + @Collation + N')+'';'' END AS GrantScript 
     FROM sys.database_permissions Permission 
@@ -748,25 +748,25 @@ SET @ObjectList2 =  N'
     
 IF LEN(ISNULL(@Principal,@Role)) > 0
     IF @Print = 1
-        SET @sql = @sql + NCHAR(13) + N'  AND Grantee.name ' + @LikeOperator + N' ' + ISNULL(QUOTENAME(@Principal,''''),QUOTENAME(@Role,'''')) 
+        SET @sql = @sql + NCHAR(13) + N'  AND Grantee.name ' + @LikeOperator + N' N' + ISNULL(QUOTENAME(@Principal,''''),QUOTENAME(@Role,'''')) 
     ELSE
         SET @sql = @sql + NCHAR(13) + N'  AND Grantee.name ' + @LikeOperator + N' ISNULL(@Principal,@Role) '
             
 IF LEN(@Type) > 0
     IF @Print = 1
-        SET @sql = @sql + NCHAR(13) + N'  AND Grantee.type ' + @LikeOperator + N' ' + QUOTENAME(@Type,'''')
+        SET @sql = @sql + NCHAR(13) + N'  AND Grantee.type ' + @LikeOperator + N' N' + QUOTENAME(@Type,'''')
     ELSE
         SET @sql = @sql + NCHAR(13) + N'  AND Grantee.type ' + @LikeOperator + N' @Type'
     
 IF LEN(@ObjectName) > 0
     IF @Print = 1
-        SET @sql = @sql + NCHAR(13) + N'  AND ObjectList.name ' + @LikeOperator + N' ' + QUOTENAME(@ObjectName,'''') 
+        SET @sql = @sql + NCHAR(13) + N'  AND ObjectList.name ' + @LikeOperator + N' N' + QUOTENAME(@ObjectName,'''') 
     ELSE
         SET @sql = @sql + NCHAR(13) + N'  AND ObjectList.name ' + @LikeOperator + N' @ObjectName '
     
 IF LEN(@Permission) > 0
     IF @Print = 1
-        SET @sql = @sql + NCHAR(13) + N'  AND Permission.permission_name ' + @LikeOperator + N' ' + QUOTENAME(@Permission,'''')
+        SET @sql = @sql + NCHAR(13) + N'  AND Permission.permission_name ' + @LikeOperator + N' N' + QUOTENAME(@Permission,'''')
     ELSE
         SET @sql = @sql + NCHAR(13) + N'  AND Permission.permission_name ' + @LikeOperator + N' @Permission'
   
@@ -779,7 +779,7 @@ IF LEN(@LoginName) > 0
                          AND Grantee.sid NOT IN (0x00, 0x01) 
                          AND Grantee.type NOT IN (''R'') ' + NCHAR(13) 
         IF @Print = 1
-            SET @sql = @sql + NCHAR(13) + N'  AND SrvPrincipals.name ' + @LikeOperator + N' ' + QUOTENAME(@LoginName,'''')
+            SET @sql = @sql + NCHAR(13) + N'  AND SrvPrincipals.name ' + @LikeOperator + N' N' + QUOTENAME(@LoginName,'''')
         ELSE
             SET @sql = @sql + NCHAR(13) + N'  AND SrvPrincipals.name ' + @LikeOperator + N' @LoginName'
   
