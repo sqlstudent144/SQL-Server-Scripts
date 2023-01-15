@@ -258,29 +258,29 @@ SET @sql =
        Authorizations.name AS RoleAuthorization, DBPrincipals.sid, 
        CASE WHEN DBPrincipals.is_fixed_role = 0 AND DBPrincipals.name NOT IN (''dbo'',''guest'', ''INFORMATION_SCHEMA'', ''public'', ''sys'') THEN ' + NCHAR(13) + 
     CASE WHEN @DBName = 'All' THEN N'   ''USE '' + QUOTENAME(@AllDBNames) + ''; '' + ' + NCHAR(13) ELSE N'' END + 
-    N'            ''IF DATABASE_PRINCIPAL_ID(N'''''' + N' + ISNULL(QUOTENAME(@CopyTo,''''),'DBPrincipals.name') + ' + '''''') IS NOT NULL '' + 
+    N'            ''IF DATABASE_PRINCIPAL_ID(N'''''' + ' + ISNULL('N'+QUOTENAME(@CopyTo,''''),'DBPrincipals.name') + ' + '''''') IS NOT NULL '' + 
                ''DROP '' + CASE DBPrincipals.[type] WHEN ''C'' THEN NULL 
                    WHEN ''K'' THEN NULL 
                    WHEN ''R'' THEN ''ROLE''  
                    WHEN ''A'' THEN ''APPLICATION ROLE'' 
                    ELSE ''USER'' END + 
-               '' ''+QUOTENAME(N' + ISNULL(QUOTENAME(@CopyTo,''''),'DBPrincipals.name') + '' + @Collation + N') + '';'' ELSE NULL END AS DropScript, 
+               '' ''+QUOTENAME(' + ISNULL('N'+QUOTENAME(@CopyTo,''''),'DBPrincipals.name') + '' + @Collation + N') + '';'' ELSE NULL END AS DropScript, 
        CASE WHEN DBPrincipals.is_fixed_role = 0 AND DBPrincipals.name NOT IN (''dbo'',''guest'', ''INFORMATION_SCHEMA'', ''public'', ''sys'') THEN ' + NCHAR(13) + 
     CASE WHEN @DBName = 'All' THEN N'   ''USE '' + QUOTENAME(@AllDBNames) + ''; '' + ' +NCHAR(13) ELSE N'' END + 
-    N'            ''IF DATABASE_PRINCIPAL_ID(N'''''' + N' + ISNULL(QUOTENAME(@CopyTo,''''),'DBPrincipals.name') + ' + '''''') IS NULL '' + 
+    N'            ''IF DATABASE_PRINCIPAL_ID(N'''''' + ' + ISNULL('N'+QUOTENAME(@CopyTo,''''),'DBPrincipals.name') + ' + '''''') IS NULL '' + 
                ''CREATE '' + CASE DBPrincipals.[type] WHEN ''C'' THEN NULL 
                    WHEN ''K'' THEN NULL 
                    WHEN ''R'' THEN ''ROLE''  
                    WHEN ''A'' THEN ''APPLICATION ROLE''  
                    ELSE ''USER'' END + 
-               '' ''+QUOTENAME(N' + ISNULL(QUOTENAME(@CopyTo,''''),'DBPrincipals.name') + '' + @Collation + N') END + 
+               '' ''+QUOTENAME(' + ISNULL('N'+QUOTENAME(@CopyTo,''''),'DBPrincipals.name') + '' + @Collation + N') END + 
                CASE WHEN DBPrincipals.[type] = ''R'' THEN 
                    ISNULL('' AUTHORIZATION ''+QUOTENAME(Authorizations.name' + @Collation + N'),'''') 
                    WHEN DBPrincipals.[type] = ''A'' THEN 
                        ''''  
                    WHEN DBPrincipals.[type] NOT IN (''C'',''K'') THEN 
                        ISNULL('' FOR LOGIN '' + 
-                            QUOTENAME(N' + ISNULL(QUOTENAME(@CopyTo,''''),'SrvPrincipals.name') + '' + @Collation + N'),'' WITHOUT LOGIN'') +  
+                            QUOTENAME(' + ISNULL('N'+QUOTENAME(@CopyTo,''''),'SrvPrincipals.name') + '' + @Collation + N'),'' WITHOUT LOGIN'') +  
                        ISNULL('' WITH DEFAULT_SCHEMA =  ''+
                             QUOTENAME(DBPrincipals.default_schema_name' + @Collation + N'),'''') 
                ELSE '''' 
@@ -432,13 +432,13 @@ SET @sql =
     N'   CASE WHEN Users.is_fixed_role = 0 AND Users.name <> ''dbo'' THEN 
        ''EXEC sp_droprolemember @rolename = N''+QUOTENAME(Roles.name' + @Collation + 
                 N','''''''')+'', @membername = N''+QUOTENAME(CASE WHEN Users.name = ''dbo'' THEN NULL
-                ELSE N' + ISNULL(QUOTENAME(@CopyTo,''''),'Users.name') + ' END' + @Collation + 
+                ELSE ' + ISNULL('N'+QUOTENAME(@CopyTo,''''),'Users.name') + ' END' + @Collation + 
                 N','''''''')+'';'' END AS DropScript, ' + NCHAR(13) + 
     CASE WHEN @DBName = 'All' THEN N'   ''USE '' + QUOTENAME(@AllDBNames) + ''; '' + ' + NCHAR(13) ELSE N'' END + 
     N'   CASE WHEN Users.is_fixed_role = 0 AND Users.name <> ''dbo'' THEN 
        ''EXEC sp_addrolemember @rolename = N''+QUOTENAME(Roles.name' + @Collation + 
                 N','''''''')+'', @membername = N''+QUOTENAME(CASE WHEN Users.name = ''dbo'' THEN NULL
-                ELSE N' + ISNULL(QUOTENAME(@CopyTo,''''),'Users.name') + ' END' + @Collation + 
+                ELSE ' + ISNULL('N'+QUOTENAME(@CopyTo,''''),'Users.name') + ' END' + @Collation + 
                 N','''''''')+'';'' END AS AddScript 
     FROM sys.database_role_members RoleMembers 
     JOIN sys.database_principals Users 
@@ -718,7 +718,7 @@ SET @ObjectList2 =  N'
                CASE WHEN ObjectList.SchemaName + ObjectList.name IS NULL THEN '''' ELSE ''.'' END + 
                ISNULL(QUOTENAME(ObjectList.name),'''') + ISNULL('' (''+ QUOTENAME(Columns.name) + '')'','''') 
                ' + @Collation + ' + '' '' ELSE '''' END + 
-           '' FROM '' + QUOTENAME(N' + ISNULL(QUOTENAME(@CopyTo,''''),'Grantee.name') + '' + @Collation + N')  + ''; '' END AS RevokeScript, 
+           '' FROM '' + QUOTENAME(' + ISNULL('N'+QUOTENAME(@CopyTo,''''),'Grantee.name') + '' + @Collation + N')  + ''; '' END AS RevokeScript, 
        CASE WHEN Grantee.is_fixed_role = 0 AND Grantee.name <> ''dbo'' THEN ' + NCHAR(13) + 
     CASE WHEN @DBName = 'All' THEN N'   ''USE '' + QUOTENAME(@AllDBNames) + ''; '' + ' + NCHAR(13) ELSE N'' END + 
     N'   CASE WHEN Permission.[state]  = ''W'' THEN ''GRANT'' ELSE Permission.state_desc' + @Collation + 
@@ -730,7 +730,7 @@ SET @ObjectList2 =  N'
                CASE WHEN ObjectList.SchemaName + ObjectList.name IS NULL THEN '''' ELSE ''.'' END + 
                ISNULL(QUOTENAME(ObjectList.name),'''') + ISNULL('' (''+ QUOTENAME(Columns.name) + '')'','''') 
                ' + @Collation + N' + '' '' ELSE '''' END + 
-           '' TO '' + QUOTENAME(N' + ISNULL(QUOTENAME(@CopyTo,''''),'Grantee.name') + '' + @Collation + N')  + '' '' +  
+           '' TO '' + QUOTENAME(' + ISNULL('N'+QUOTENAME(@CopyTo,''''),'Grantee.name') + '' + @Collation + N')  + '' '' +  
            CASE WHEN Permission.[state]  = ''W'' THEN '' WITH GRANT OPTION '' ELSE '''' END +  
            '' AS ''+ QUOTENAME(Grantor.name' + @Collation + N')+'';'' END AS GrantScript 
     FROM sys.database_permissions Permission 
