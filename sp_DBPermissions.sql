@@ -88,7 +88,7 @@ Parameters:
             ##DBRoles 
             ##DBPermissions
     @ShowOrphans
-        By default this is 0. If it is 1 then it orphaned principals and a script to fix them.
+        By default this is 0. If it is 1 then it shows only orphaned principals and scripts to fix them.
                   Note: This option is 2012 and up only.
     @Output
         What type of output is desired.
@@ -183,7 +183,7 @@ ALTER PROCEDURE dbo.sp_DBPermissions
     @IncludeMSShipped bit = 1,
     @CopyTo sysname = NULL,
     @DropTempTables bit = 1,
-	@ShowOrphans bit = 0,
+    @ShowOrphans bit = 0,
     @Output varchar(30) = 'Default',
     @Print bit = 0
 )
@@ -306,7 +306,7 @@ SET @sql =
                     '' SID = '' + CONVERT(varchar(85), DBPrincipals.sid, 1) 
                WHEN DBPrincipals.type IN (''U'',''G'') THEN '' FROM WINDOWS ''  
                ELSE '''' END END AS CreateLogin, ' +
-	CASE WHEN @DBName = 'All' THEN N'   ''USE '' + QUOTENAME(@AllDBNames) + ''; '' + ' +NCHAR(13) ELSE N'' END + 
+    CASE WHEN @DBName = 'All' THEN N'   ''USE '' + QUOTENAME(@AllDBNames) + ''; '' + ' +NCHAR(13) ELSE N'' END + 
     N'        CASE WHEN DBPrincipals.name = ''dbo'' THEN ''EXEC sp_changedbowner ''''<existing login>'''';'' ELSE  
         ''ALTER USER '' + QUOTENAME(DBPrincipals.name) + '' WITH LOGIN = '' + QUOTENAME(DBPrincipals.name) + '';'' END AS AlterUser' ELSE '' END + '
     FROM sys.database_principals DBPrincipals 
@@ -319,8 +319,8 @@ SET @sql =
     
 IF SERVERPROPERTY('ProductVersion') >= '12' AND @ShowOrphans = 1
     SET @sql = @sql + NCHAR(13) + N'  AND DBPrincipals.authentication_type_desc <> ''NONE'' 
-	AND SrvPrincipals.principal_id IS NULL 
-	AND DBPrincipals.sid NOT IN (0x00, 0x01)'
+    AND SrvPrincipals.principal_id IS NULL 
+    AND DBPrincipals.sid NOT IN (0x00, 0x01)'
 
 IF LEN(ISNULL(@Principal,@Role)) > 0 
     IF @Print = 1
@@ -412,7 +412,7 @@ BEGIN
     BEGIN
         ALTER TABLE ##DBPrincipals ADD CreateLogin nvarchar(max) NULL
         ALTER TABLE ##DBPrincipals ADD AlterUser nvarchar(max) NULL
-	END
+    END
 
     SET @sql =  @use + N'INSERT INTO ##DBPrincipals ' + NCHAR(13) + @sql
 
@@ -896,14 +896,14 @@ END
 
 IF @Print <> 1
 IF (SERVERPROPERTY('ProductVersion') >= '12' AND @ShowOrphans = 1)
-	IF @Output IN ('CreateOnly', 'DropOnly', 'ScriptOnly')
-		SELECT DropScript, CreateScript, CreateLogin, AlterUser
-		FROM ##DBPrincipals ORDER BY DBName, DBPrincipal
-	ELSE
-		SELECT DBName, DBPrincipal, SrvPrincipal, type, type_desc, default_schema_name, 
-				create_date, modify_date, is_fixed_role, RoleAuthorization, sid, 
-				DropScript, CreateScript, CreateLogin, AlterUser
-		FROM ##DBPrincipals ORDER BY DBName, DBPrincipal
+    IF @Output IN ('CreateOnly', 'DropOnly', 'ScriptOnly')
+        SELECT DropScript, CreateScript, CreateLogin, AlterUser
+        FROM ##DBPrincipals ORDER BY DBName, DBPrincipal
+    ELSE
+        SELECT DBName, DBPrincipal, SrvPrincipal, type, type_desc, default_schema_name, 
+                create_date, modify_date, is_fixed_role, RoleAuthorization, sid, 
+                DropScript, CreateScript, CreateLogin, AlterUser
+        FROM ##DBPrincipals ORDER BY DBName, DBPrincipal
 ELSE
 BEGIN
     IF @Output = 'None'
