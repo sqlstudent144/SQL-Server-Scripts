@@ -397,7 +397,7 @@ BEGIN
         DBPrincipal sysname NULL,
         SrvPrincipal sysname NULL,
         type char(1) NULL,
-        type_desc nchar(60) NULL,
+        type_desc NVARCHAR (60) NULL, /* type_desc nchar(60) NULL, to remove extra space */
         default_schema_name sysname NULL,
         create_date datetime NULL,
         modify_date datetime NULL,
