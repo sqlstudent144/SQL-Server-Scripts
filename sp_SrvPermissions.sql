@@ -83,7 +83,7 @@ Parameters:
                     reporting.
         CreateOnly - Only return the create scripts where they aren't NULL.
         DropOnly - Only return the drop scripts where they aren't NULL.
-        ScriptsOnly - Return drop and create scripts where they aren't NULL.
+        ScriptOnly - Return drop and create scripts where they aren't NULL.
         Report - Returns one output with one row per principal and a comma delimited list of
                     roles the principal is a member of and a comma delimited list of the 
                     individual permissions they have.
