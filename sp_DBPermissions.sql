@@ -194,12 +194,14 @@ SET NOCOUNT ON
 DECLARE @Collation nvarchar(75) 
 SET @Collation = N' COLLATE ' + CAST(SERVERPROPERTY('Collation') AS nvarchar(50))
     
-DECLARE @sql nvarchar(max)
-DECLARE @sql2 nvarchar(max)
-DECLARE @ObjectList nvarchar(max)
-DECLARE @ObjectList2 nvarchar(max)
-DECLARE @use nvarchar(500)
-DECLARE @AllDBNames sysname
+DECLARE @sql nvarchar(max),
+        @sql2 nvarchar(max),
+        @ObjectList nvarchar(max),
+        @ObjectList2 nvarchar(max),
+        @use nvarchar(500),
+        @AllDBNames sysname,
+        @SQLVersion tinyint = (@@microsoftversion / 0x1000000) & 0xff,
+        @ServerName sysname = CONVERT(sysname, SERVERPROPERTY('ServerName'));
     
 IF @DBName IS NULL OR @DBName = N'All'
     BEGIN
@@ -418,13 +420,37 @@ BEGIN
 
     IF @DBName = 'All'
         BEGIN
-            -- Declare a READ_ONLY cursor to loop through the databases
-            DECLARE cur_DBList CURSOR
-            READ_ONLY
-            FOR SELECT name FROM sys.databases 
-            WHERE state IN (0,5)
-              AND source_database_id IS NULL
-            ORDER BY name
+            -- Exclude AG secondary databases where allow connections is off
+            IF @SQLVersion >= 11 AND 3 = (SELECT COUNT(*) FROM sys.all_objects WHERE name IN('availability_replicas','dm_hadr_availability_group_states','dm_hadr_database_replica_states'))
+            BEGIN
+                DECLARE cur_DBList CURSOR
+                READ_ONLY
+                FOR SELECT name FROM sys.databases 
+                WHERE state IN (0,5)
+                AND source_database_id IS NULL
+                AND [name] NOT IN (
+                        SELECT [name] FROM sys.dm_hadr_database_replica_states AS drs 
+                        INNER JOIN sys.availability_replicas AS ar
+                        ON ar.replica_id = drs.replica_id
+                        INNER JOIN sys.dm_hadr_availability_group_states ags 
+                        ON ags.group_id = ar.group_id
+                        INNER JOIN sys.databases dbs
+                        ON dbs.database_id = drs.database_id
+                        WHERE ar.secondary_role_allow_connections = 0
+                        AND ags.primary_replica <> @ServerName
+                        )
+                ORDER BY name
+            END
+            ELSE
+            BEGIN
+                -- Declare a READ_ONLY cursor to loop through the databases
+                DECLARE cur_DBList CURSOR
+                READ_ONLY
+                FOR SELECT name FROM sys.databases 
+                WHERE state IN (0,5)
+                AND source_database_id IS NULL
+                ORDER BY name
+            END
     
             OPEN cur_DBList
     
@@ -574,13 +600,37 @@ BEGIN
     
     IF @DBName = 'All'
         BEGIN
-            -- Declare a READ_ONLY cursor to loop through the databases
-            DECLARE cur_DBList CURSOR
-            READ_ONLY
-            FOR SELECT name FROM sys.databases 
-            WHERE state IN (0,5)
-              AND source_database_id IS NULL
-            ORDER BY name
+            -- Exclude AG secondary databases where allow connections is off
+            IF @SQLVersion >= 11 AND 3 = (SELECT COUNT(*) FROM sys.all_objects WHERE name IN('availability_replicas','dm_hadr_availability_group_states','dm_hadr_database_replica_states'))
+            BEGIN
+                DECLARE cur_DBList CURSOR
+                READ_ONLY
+                FOR SELECT name FROM sys.databases 
+                WHERE state IN (0,5)
+                AND source_database_id IS NULL
+                AND [name] NOT IN (
+                        SELECT [name] FROM sys.dm_hadr_database_replica_states AS drs 
+                        INNER JOIN sys.availability_replicas AS ar
+                        ON ar.replica_id = drs.replica_id
+                        INNER JOIN sys.dm_hadr_availability_group_states ags 
+                        ON ags.group_id = ar.group_id
+                        INNER JOIN sys.databases dbs
+                        ON dbs.database_id = drs.database_id
+                        WHERE ar.secondary_role_allow_connections = 0
+                        AND ags.primary_replica <> @ServerName
+                        )
+                ORDER BY name
+            END
+            ELSE
+            BEGIN
+                -- Declare a READ_ONLY cursor to loop through the databases
+                DECLARE cur_DBList CURSOR
+                READ_ONLY
+                FOR SELECT name FROM sys.databases 
+                WHERE state IN (0,5)
+                AND source_database_id IS NULL
+                ORDER BY name
+            END
     
             OPEN cur_DBList
     
@@ -857,13 +907,37 @@ BEGIN
     
     IF @DBName = 'All'
         BEGIN
-            -- Declare a READ_ONLY cursor to loop through the databases
-            DECLARE cur_DBList CURSOR
-            READ_ONLY
-            FOR SELECT name FROM sys.databases 
-            WHERE state IN (0,5)
-              AND source_database_id IS NULL
-            ORDER BY name
+            -- Exclude AG secondary databases where allow connections is off
+            IF @SQLVersion >= 11 AND 3 = (SELECT COUNT(*) FROM sys.all_objects WHERE name IN('availability_replicas','dm_hadr_availability_group_states','dm_hadr_database_replica_states'))
+            BEGIN
+                DECLARE cur_DBList CURSOR
+                READ_ONLY
+                FOR SELECT name FROM sys.databases 
+                WHERE state IN (0,5)
+                AND source_database_id IS NULL
+                AND [name] NOT IN (
+                        SELECT [name] FROM sys.dm_hadr_database_replica_states AS drs 
+                        INNER JOIN sys.availability_replicas AS ar
+                        ON ar.replica_id = drs.replica_id
+                        INNER JOIN sys.dm_hadr_availability_group_states ags 
+                        ON ags.group_id = ar.group_id
+                        INNER JOIN sys.databases dbs
+                        ON dbs.database_id = drs.database_id
+                        WHERE ar.secondary_role_allow_connections = 0
+                        AND ags.primary_replica <> @ServerName
+                        )
+                ORDER BY name
+            END
+            ELSE
+            BEGIN
+                -- Declare a READ_ONLY cursor to loop through the databases
+                DECLARE cur_DBList CURSOR
+                READ_ONLY
+                FOR SELECT name FROM sys.databases 
+                WHERE state IN (0,5)
+                AND source_database_id IS NULL
+                ORDER BY name
+            END
     
             OPEN cur_DBList
     
