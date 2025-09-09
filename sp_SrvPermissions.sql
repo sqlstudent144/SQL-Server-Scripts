@@ -132,6 +132,7 @@ Data is ordered as follows
 --            - Add script support for a single credential.  Will not support multiple credentials.
 -- 07/17/2022 - Add @CopyTo parameter to handle requests like "Please copy permissions from x to y."
 -- 07/31/2022 - Formatting: Replace tabs with spaces
+-- 09/09/2025 - Add code for login types E (External login from MS Entra) and X (External group for MS Entra)
 *********************************************************************************************/
 ALTER PROCEDURE dbo.sp_SrvPermissions 
 (
@@ -213,10 +214,11 @@ SET @sql =
                     '' SID = '' + CONVERT(varchar(85), Logins.sid, 1) ' 
                     ELSE N'''' END + '
                WHEN Logins.type IN (''U'',''G'') THEN '' FROM WINDOWS ''  
+               WHEN Logins.type IN (''E'',''X'') THEN '' FROM EXTERNAL PROVIDER ''  
                WHEN Logins.type = ''C'' THEN ISNULL('' FROM CERTIFICATE '' + QUOTENAME(Cert.name),'''')
                WHEN Logins.type = ''K'' THEN ISNULL('' FROM ASYMMETRIC KEY '' + QUOTENAME(aKey.name),'''')
                ELSE '''' END + 
-               CASE WHEN Logins.type IN (''S'',''U'',''G'') THEN -- Note: Types, S, U and G are the only ones that have additional options.
+               CASE WHEN Logins.type IN (''S'',''U'',''G'',''E'',''X'') THEN -- Note: Types: S, U, G, E and X are the only ones that have additional options.
                    CASE WHEN Logins.default_database_name IS NOT NULL OR Logins.default_language_name IS NOT NULL THEN
                         CASE WHEN Logins.Type = ''S'' THEN '','' ELSE '' WITH '' END
                    ELSE '''' END +
@@ -259,7 +261,7 @@ IF LEN(@Type) > 0
  
 IF @DBName IS NOT NULL
     SET @sql = @sql + NCHAR(13) + N'  AND Logins.SID IN (SELECT SID FROM [' + @DBName + N'].sys.database_principals 
-                                                        WHERE type IN (''G'',''S'',''U'',''K'',''C''))'
+                                                        WHERE type IN (''G'',''S'',''U'',''K'',''C'',''E'',''X''))'
 
 IF @IncludeMSShipped = 0
     SET @sql = @sql + NCHAR(13) + N'  AND Logins.is_fixed_role = 0 ' + NCHAR(13) + 
@@ -332,7 +334,7 @@ IF LEN(@Type) > 0
  
 IF @DBName IS NOT NULL
     SET @sql = @sql + NCHAR(13) + N'  AND Logins.SID IN (SELECT SID FROM [' + @DBName + N'].sys.database_principals 
-                                                        WHERE type IN (''G'',''S'',''U'',''K'',''C''))'
+                                                        WHERE type IN (''G'',''S'',''U'',''K'',''C'',''E'',''X''))'
   
 IF @IncludeMSShipped = 0
     SET @sql = @sql + NCHAR(13) + N'  AND Logins.is_fixed_role = 0 ' + NCHAR(13) + 
@@ -400,7 +402,7 @@ IF LEN(@Type) > 0
   
 IF @DBName IS NOT NULL
     SET @sql = @sql + NCHAR(13) + N' AND Grantee.SID IN (SELECT SID FROM [' + @DBName + N'].sys.database_principals 
-                                    WHERE type IN (''G'',''S'',''U'',''K'',''C''))'
+                                    WHERE type IN (''G'',''S'',''U'',''K'',''C'',''E'',''X''))'
  
 IF @IncludeMSShipped = 0
     SET @sql = @sql + NCHAR(13) + N'  AND Grantee.is_fixed_role = 0 ' + NCHAR(13) + 
